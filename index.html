@@ -2,72 +2,77 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>肝細胞癌與末期肝病綜合計算機</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <!-- 動態生成 PWA Manifest -->
-    <script>
-        const manifest = {
-            name: "肝病預後綜合計算機",
-            short_name: "HCC Calc",
-            start_url: ".",
-            display: "standalone",
-            background_color: "#ffffff",
-            theme_color: "#3b82f6",
-            icons: [{
-                src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='%233b82f6' rx='20'/%3E%3Ctext x='50' y='65' font-size='50' fill='white' text-anchor='middle'%3E醫%3C/text%3E%3C/svg%3E",
-                sizes: "192x192",
-                type: "image/svg+xml",
-                purpose: "any maskable"
-            }]
-        };
-        const stringManifest = JSON.stringify(manifest);
-        const blob = new Blob([stringManifest], {type: 'application/json'});
-        const manifestURL = URL.createObjectURL(blob);
-        document.write('<link rel="manifest" href="' + manifestURL + '">');
-    </script>
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="HCC Calc">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+    <script src="https://unpkg.com/vue@3.5.13/dist/vue.global.prod.js"></script>
+    <style>
+        [v-cloak] { display: none; }
+        .field { margin-top: .25rem; display: block; width: 100%; border-radius: .375rem; border: 1px solid #cbd5e1; padding: .5rem; font-size: .875rem; box-shadow: 0 1px 2px rgba(0,0,0,.05); background: #fff; }
+        .field:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.3); }
+        .field.bad { border-color: #f87171; background: #fef2f2; }
+    </style>
 </head>
 <body class="bg-slate-50 min-h-screen pb-12">
-    <div id="app" class="max-w-4xl mx-auto p-4 sm:p-6">
+    <div id="app" v-cloak class="max-w-5xl mx-auto p-4 sm:p-6">
         <header class="mb-6 text-center sm:text-left">
             <h1 class="text-2xl font-bold text-slate-800">肝細胞癌與肝病預後計算機</h1>
-            <p class="text-sm text-slate-500 mt-1">整合 Child-Pugh、ALBI、MELD-Na 及 BCLC 分期系統</p>
+            <p class="text-sm text-slate-500 mt-1">整合 Child-Pugh、ALBI / mALBI、MELD / MELD-Na / MELD 3.0 及 BCLC 2022 分期系統</p>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <!-- 左側：輸入表單 -->
             <div class="space-y-6">
-                
+
                 <!-- 1. 抽血數據 -->
                 <section class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
                     <h2 class="text-lg font-semibold text-blue-700 mb-4 border-b pb-2">1. 客觀抽血數據</h2>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">總膽紅素 (mg/dL)</label>
-                            <input type="number" v-model.number="lab.bilirubin" min="0.1" step="0.1" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                            <label for="bili" class="block text-sm font-medium text-slate-700">總膽紅素 (mg/dL)</label>
+                            <input id="bili" type="number" inputmode="decimal" v-model="lab.bilirubin" min="0" step="0.1" :class="['field', {bad: bad.bilirubin}]">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">白蛋白 (g/dL)</label>
-                            <input type="number" v-model.number="lab.albumin" min="1.0" max="6.0" step="0.1" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                            <label for="alb" class="block text-sm font-medium text-slate-700">白蛋白 (g/dL)</label>
+                            <input id="alb" type="number" inputmode="decimal" v-model="lab.albumin" min="0" step="0.1" :class="['field', {bad: bad.albumin}]">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">PT INR</label>
-                            <input type="number" v-model.number="lab.inr" min="0.8" step="0.1" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                            <label for="inr" class="block text-sm font-medium text-slate-700">PT INR</label>
+                            <input id="inr" type="number" inputmode="decimal" v-model="lab.inr" min="0" step="0.1" :class="['field', {bad: bad.inr}]">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">肌酸酐 (mg/dL)</label>
-                            <input type="number" v-model.number="lab.creatinine" min="0.1" step="0.1" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                            <label for="cr" class="block text-sm font-medium text-slate-700">肌酸酐 (mg/dL)</label>
+                            <input id="cr" type="number" inputmode="decimal" v-model="lab.creatinine" min="0" step="0.1" :class="['field', {bad: bad.creatinine}]">
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700">血清鈉離子 (mEq/L)</label>
-                            <input type="number" v-model.number="lab.na" min="110" max="160" step="1" class="mt-1 block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                            <label for="na" class="block text-sm font-medium text-slate-700">血清鈉離子 (mEq/L)</label>
+                            <input id="na" type="number" inputmode="numeric" v-model="lab.na" min="0" step="1" :class="['field', {bad: bad.na}]">
                         </div>
-                        <div class="flex items-center pt-6">
-                            <input type="checkbox" v-model="lab.dialysis" id="dialysis" class="h-4 w-4 text-blue-600 rounded">
-                            <label for="dialysis" class="ml-2 block text-sm text-slate-700">過去一週內洗腎</label>
+                        <div>
+                            <label for="sex" class="block text-sm font-medium text-slate-700">生理性別 <span class="text-slate-400 font-normal">(MELD 3.0)</span></label>
+                            <select id="sex" v-model="lab.sex" class="field">
+                                <option value="male">男</option>
+                                <option value="female">女</option>
+                            </select>
+                        </div>
+                        <div class="col-span-2 flex items-start">
+                            <input type="checkbox" v-model="lab.dialysis" id="dialysis" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
+                            <label for="dialysis" class="ml-2 block text-sm text-slate-700">過去 7 天內洗腎 ≥ 2 次，或 CVVHD ≥ 24 小時</label>
+                        </div>
+                        <div class="col-span-2 flex items-start">
+                            <input type="checkbox" v-model="lab.cholestatic" id="cholestatic" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
+                            <label for="cholestatic" class="ml-2 block text-sm text-slate-700">膽汁淤積性肝病 (PBC / PSC) — Child-Pugh 膽紅素改用 4 / 10 mg/dL 切點</label>
                         </div>
                     </div>
+                    <p v-if="warnings.length" class="mt-3 text-xs text-amber-700 bg-amber-50 rounded p-2">
+                        <span v-for="w in warnings" :key="w" class="block">⚠ {{ w }}</span>
+                    </p>
                 </section>
 
                 <!-- 2. 臨床症狀 -->
@@ -75,30 +80,31 @@
                     <h2 class="text-lg font-semibold text-blue-700 mb-4 border-b pb-2">2. 臨床症狀與體能</h2>
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">肝腦病變 (Encephalopathy)</label>
-                            <select v-model="clinical.encephalopathy" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                            <label for="he" class="block text-sm font-medium text-slate-700 mb-1">肝腦病變 (Encephalopathy)</label>
+                            <select id="he" v-model.number="clinical.encephalopathy" class="field">
                                 <option :value="1">無 (None)</option>
-                                <option :value="2">輕中度 (Grade 1-2)</option>
-                                <option :value="3">重度/昏迷 (Grade 3-4)</option>
+                                <option :value="2">輕中度 (Grade 1-2) / 藥物可控</option>
+                                <option :value="3">重度 (Grade 3-4) / 難治型</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">腹水 (Ascites)</label>
-                            <select v-model="clinical.ascites" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                            <label for="asc" class="block text-sm font-medium text-slate-700 mb-1">腹水 (Ascites)</label>
+                            <select id="asc" v-model.number="clinical.ascites" class="field">
                                 <option :value="1">無 (None)</option>
-                                <option :value="2">輕度/藥物可控</option>
-                                <option :value="3">中重度/難治型</option>
+                                <option :value="2">輕度 / 利尿劑可控</option>
+                                <option :value="3">中重度 / 難治型</option>
                             </select>
                         </div>
                         <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">ECOG 體能狀態</label>
-                            <select v-model="clinical.ecog" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
+                            <label for="ecog" class="block text-sm font-medium text-slate-700 mb-1">ECOG 體能狀態</label>
+                            <select id="ecog" v-model.number="clinical.ecog" class="field">
                                 <option :value="0">0: 完全正常，無限制</option>
                                 <option :value="1">1: 症狀輕微，可輕度活動</option>
                                 <option :value="2">2: 生活自理，無法工作</option>
                                 <option :value="3">3: 依賴他人，多數時間臥床</option>
                                 <option :value="4">4: 完全臥床，無法自理</option>
                             </select>
+                            <p class="text-xs text-slate-400 mt-1">BCLC 的 PS 指「癌症相關」症狀；若 PS 下降源自共病或肝硬化本身，需由 MDT 判讀。</p>
                         </div>
                     </div>
                 </section>
@@ -109,30 +115,37 @@
                     <div class="space-y-4">
                         <div class="grid grid-cols-2 gap-4">
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">腫瘤數量</label>
-                                <select v-model="tumor.count" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
-                                    <option value="single">單顆 (Single)</option>
-                                    <option value="few">2 - 3 顆</option>
-                                    <option value="multi">多發性 (>3顆)</option>
-                                </select>
+                                <label for="nod" class="block text-sm font-medium text-slate-700">腫瘤數量 (顆)</label>
+                                <input id="nod" type="number" inputmode="numeric" v-model="tumor.count" min="1" step="1" :class="['field', {bad: bad.count}]">
                             </div>
                             <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-1">最大尺寸</label>
-                                <select v-model="tumor.size" class="block w-full rounded-md border-slate-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm p-2 border">
-                                    <option value="<=2">≤ 2 cm</option>
-                                    <option value="2-3">> 2 cm 且 ≤ 3 cm</option>
-                                    <option value=">3">> 3 cm</option>
-                                </select>
+                                <label for="size" class="block text-sm font-medium text-slate-700">最大腫瘤直徑 (cm)</label>
+                                <input id="size" type="number" inputmode="decimal" v-model="tumor.size" min="0" step="0.1" :class="['field', {bad: bad.size}]">
                             </div>
                         </div>
-                        <div class="flex space-x-6">
-                            <div class="flex items-center">
-                                <input type="checkbox" v-model="tumor.vascular" id="vascular" class="h-4 w-4 text-blue-600 rounded">
-                                <label for="vascular" class="ml-2 block text-sm text-slate-700">大血管侵犯</label>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div class="flex items-start">
+                                <input type="checkbox" v-model="tumor.vascular" id="vascular" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
+                                <label for="vascular" class="ml-2 block text-sm text-slate-700">大血管 / 門靜脈侵犯</label>
                             </div>
-                            <div class="flex items-center">
-                                <input type="checkbox" v-model="tumor.extrahepatic" id="extra" class="h-4 w-4 text-blue-600 rounded">
+                            <div class="flex items-start">
+                                <input type="checkbox" v-model="tumor.extrahepatic" id="extra" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
                                 <label for="extra" class="ml-2 block text-sm text-slate-700">肝外轉移</label>
+                            </div>
+                            <div class="flex items-start sm:col-span-2">
+                                <input type="checkbox" v-model="tumor.diffuse" id="diffuse" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
+                                <label for="diffuse" class="ml-2 block text-sm text-slate-700">瀰漫性 / 浸潤型 / 廣泛兩葉侵犯 (不適合 TACE)</label>
+                            </div>
+                        </div>
+                        <div class="border-t pt-3 space-y-2">
+                            <div class="text-xs font-semibold text-slate-500">影響 BCLC 0 / A / B 治療選擇</div>
+                            <div class="flex items-start">
+                                <input type="checkbox" v-model="tumor.portalHTN" id="csph" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
+                                <label for="csph" class="ml-2 block text-sm text-slate-700">臨床顯著門脈高壓 (HVPG ≥ 10 mmHg、靜脈曲張、脾腫大合併血小板低) 或膽紅素升高</label>
+                            </div>
+                            <div class="flex items-start">
+                                <input type="checkbox" v-model="tumor.ltCandidate" id="lt" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
+                                <label for="lt" class="ml-2 block text-sm text-slate-700">為肝臟移植候選者</label>
                             </div>
                         </div>
                     </div>
@@ -140,41 +153,67 @@
             </div>
 
             <!-- 右側：計算結果面板 -->
-            <div class="space-y-6">
+            <div class="space-y-6 md:sticky md:top-4 md:self-start">
                 <!-- 分數總覽 -->
                 <div class="bg-slate-800 text-white p-6 rounded-xl shadow-lg">
                     <h2 class="text-xl font-bold mb-4 text-blue-300 border-b border-slate-600 pb-2">預後評估分數</h2>
-                    <div class="grid grid-cols-2 gap-4 mb-4">
+                    <p v-if="missing.length" class="mb-4 text-sm text-amber-300">請填寫：{{ missing.join('、') }}</p>
+                    <div class="grid grid-cols-2 gap-4">
                         <div class="bg-slate-700 p-3 rounded-lg">
                             <div class="text-xs text-slate-300">Child-Pugh 分級</div>
-                            <div class="text-2xl font-bold text-white">{{ childPughScore }} 分 <span class="text-lg text-blue-400">({{ childPughClass }} 級)</span></div>
+                            <div v-if="cp" class="text-2xl font-bold text-white">{{ cp.score }} 分 <span class="text-lg text-blue-400">({{ cp.cls }} 級)</span></div>
+                            <div v-else class="text-2xl font-bold text-slate-500">—</div>
+                            <div v-if="cp" class="text-[11px] text-slate-400 mt-1">膽 {{ cp.parts.bili }}・白 {{ cp.parts.alb }}・INR {{ cp.parts.inr }}・腦 {{ cp.parts.enceph }}・水 {{ cp.parts.ascites }}</div>
                         </div>
                         <div class="bg-slate-700 p-3 rounded-lg">
                             <div class="text-xs text-slate-300">ALBI 分數 (等級)</div>
-                            <div class="text-2xl font-bold text-white">{{ albiScore }} <span class="text-lg text-blue-400">(G{{ albiGrade }})</span></div>
+                            <div v-if="albi" class="text-2xl font-bold text-white">{{ albi.score.toFixed(2) }} <span class="text-lg text-blue-400">(G{{ albi.grade }})</span></div>
+                            <div v-else class="text-2xl font-bold text-slate-500">—</div>
+                            <div v-if="albi" class="text-[11px] text-slate-400 mt-1">mALBI grade {{ albi.mGrade }}</div>
                         </div>
                         <div class="bg-slate-700 p-3 rounded-lg">
                             <div class="text-xs text-slate-300">MELD 分數</div>
-                            <div class="text-2xl font-bold text-white">{{ meldScore }}</div>
+                            <div class="text-2xl font-bold" :class="meld ? 'text-white' : 'text-slate-500'">{{ meld ? meld.score : '—' }}</div>
                         </div>
                         <div class="bg-slate-700 p-3 rounded-lg">
                             <div class="text-xs text-slate-300">MELD-Na 分數</div>
-                            <div class="text-2xl font-bold text-white">{{ meldNaScore }}</div>
+                            <div class="text-2xl font-bold" :class="meldNa ? 'text-white' : 'text-slate-500'">{{ meldNa ? meldNa.score : '—' }}</div>
+                        </div>
+                        <div class="bg-slate-700 p-3 rounded-lg col-span-2">
+                            <div class="text-xs text-slate-300">MELD 3.0 分數 <span class="text-slate-400">(OPTN 2023 起移植分配標準)</span></div>
+                            <div v-if="meld3" class="text-2xl font-bold text-white">{{ meld3.score }} <span class="text-base font-medium text-blue-300">估計 90 天存活 {{ meld3.surv90.toFixed(1) }}%</span></div>
+                            <div v-else class="text-2xl font-bold text-slate-500">—</div>
                         </div>
                     </div>
+                    <p class="text-[11px] text-slate-400 mt-3 leading-relaxed">MELD 系列：膽紅素 / INR / 肌酸酐 &lt; 1 以 1 計；洗腎時肌酸酐以 4.0（MELD、MELD-Na）或 3.0（MELD 3.0）計；分數上限 40。</p>
                 </div>
 
                 <!-- BCLC 決策結果 -->
                 <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-blue-600">
-                    <h2 class="text-xl font-bold text-slate-800 mb-2">BCLC 臨床分期</h2>
-                    <div class="text-3xl font-black text-blue-700 mb-4">{{ bclcResult.stage }}</div>
-                    
-                    <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">國際指引首選治療策略</h3>
-                    <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r text-slate-700 font-medium">
-                        {{ bclcResult.treatment }}
-                    </div>
+                    <h2 class="text-xl font-bold text-slate-800 mb-2">BCLC 臨床分期 <span class="text-sm font-normal text-slate-400">(2022)</span></h2>
+                    <template v-if="bclc">
+                        <div class="text-3xl font-black text-blue-700 mb-1">{{ bclc.stage }}</div>
+                        <div class="text-sm text-slate-500 mb-4">{{ bclc.reason }}</div>
+
+                        <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">國際指引首選治療策略</h3>
+                        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r text-slate-700 font-medium">
+                            {{ bclc.treatment }}
+                        </div>
+                        <ul v-if="bclc.notes.length" class="mt-3 space-y-1 text-sm text-slate-600 list-disc pl-5">
+                            <li v-for="n in bclc.notes" :key="n">{{ n }}</li>
+                        </ul>
+                        <div class="mt-3 flex flex-wrap gap-2 text-xs">
+                            <span :class="['px-2 py-1 rounded-full', bclc.milan ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600']">Milan 標準：{{ bclc.milan ? '符合' : '不符合' }}</span>
+                            <span v-if="bclc.upTo7 !== null" :class="['px-2 py-1 rounded-full', bclc.upTo7 ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-600']">Up-to-7：{{ bclc.upTo7 ? '符合' : '不符合' }}</span>
+                        </div>
+                    </template>
+                    <div v-else class="text-slate-400">請填寫腫瘤數量、最大直徑與 Child-Pugh 所需數據。</div>
+
+                    <button type="button" @click="copySummary" :disabled="!summary" class="mt-4 w-full rounded-md bg-blue-600 text-white text-sm font-medium py-2 hover:bg-blue-700 disabled:bg-slate-300">
+                        {{ copied ? '已複製 ✓' : '複製摘要（病歷用）' }}
+                    </button>
                     <p class="text-xs text-slate-400 mt-4 leading-relaxed">
-                        * 免責聲明：本計算工具結果依據 EASL/AASLD 國際最新指引推算，僅供醫療專業人員參考。實際治療計畫應由多專科團隊 (MDT) 根據患者整體狀況與禁忌症進行最終評估。
+                        * 免責聲明：本工具依 BCLC 2022 (Reig et al., J Hepatol 2022)、EASL 2025 HCC 指引、AASLD 2023 指引與 OPTN MELD 3.0 (Kim et al., Gastroenterology 2021) 推算，僅供醫療專業人員參考。實際治療計畫應由多專科團隊 (MDT) 根據患者整體狀況與禁忌症進行最終評估。
                     </p>
                 </div>
             </div>
@@ -182,109 +221,209 @@
     </div>
 
     <script>
+    /*ENGINE-START*/
+    const HCC = (() => {
+        // 空白或非數字 → null
+        const num = v => (v === '' || v === null || v === undefined || !isFinite(+v)) ? null : +v;
+        const clamp = (x, lo, hi) => Math.min(Math.max(x, lo), hi);
+
+        function childPugh({ bilirubin, albumin, inr, encephalopathy, ascites, cholestatic }) {
+            const b = num(bilirubin), a = num(albumin), i = num(inr);
+            if (b === null || a === null || i === null) return null;
+            const [b2, b3] = cholestatic ? [4, 10] : [2, 3];
+            const parts = {
+                bili: b < b2 ? 1 : b <= b3 ? 2 : 3,
+                alb: a > 3.5 ? 1 : a >= 2.8 ? 2 : 3,
+                inr: i < 1.7 ? 1 : i <= 2.3 ? 2 : 3,
+                enceph: encephalopathy,
+                ascites: ascites
+            };
+            const score = parts.bili + parts.alb + parts.inr + parts.enceph + parts.ascites;
+            return { score, cls: score <= 6 ? 'A' : score <= 9 ? 'B' : 'C', parts };
+        }
+
+        // ALBI = 0.66·log10(bili µmol/L) − 0.085·alb(g/L)；等級以未四捨五入的分數判斷
+        function albi({ bilirubin, albumin }) {
+            const b = num(bilirubin), a = num(albumin);
+            if (b === null || a === null || b <= 0 || a <= 0) return null;
+            const score = 0.66 * Math.log10(b * 17.1) - 0.085 * (a * 10);
+            const grade = score <= -2.60 ? 1 : score <= -1.39 ? 2 : 3;
+            const mGrade = score <= -2.60 ? '1' : score <= -2.27 ? '2a' : score <= -1.39 ? '2b' : '3';
+            return { score, grade, mGrade };
+        }
+
+        // UNOS MELD(i)：bili/INR/Cr < 1 → 1；Cr > 4 或洗腎 → 4
+        function meldI({ bilirubin, inr, creatinine, dialysis }) {
+            const b = num(bilirubin), i = num(inr), c = num(creatinine);
+            if (b === null || i === null || (c === null && !dialysis)) return null;
+            const cr = dialysis ? 4 : clamp(c, 1, 4);
+            return Math.round(3.78 * Math.log(Math.max(b, 1)) + 11.2 * Math.log(Math.max(i, 1)) + 9.57 * Math.log(cr) + 6.43);
+        }
+
+        function meld(input) {
+            const m = meldI(input);
+            return m === null ? null : { score: Math.min(m, 40) };
+        }
+
+        // OPTN 2016 MELD-Na：僅在 MELD(i) > 11 時校正，Na 限 125–137
+        function meldNa(input) {
+            const m = meldI(input);
+            const na = num(input.na);
+            if (m === null || na === null) return null;
+            if (m <= 11) return { score: m };
+            const n = clamp(na, 125, 137);
+            return { score: Math.min(Math.round(m + 1.32 * (137 - n) - 0.033 * m * (137 - n)), 40) };
+        }
+
+        // MELD 3.0 (Kim 2021)：Cr 上限 3.0（洗腎 → 3.0）、Na 125–137、Alb 1.5–3.5
+        function meld3({ bilirubin, inr, creatinine, na, albumin, sex, dialysis }) {
+            const b0 = num(bilirubin), i0 = num(inr), c0 = num(creatinine), n0 = num(na), a0 = num(albumin);
+            if (b0 === null || i0 === null || n0 === null || a0 === null || (c0 === null && !dialysis)) return null;
+            const lb = Math.log(Math.max(b0, 1));
+            const li = Math.log(Math.max(i0, 1));
+            const lc = Math.log(dialysis ? 3 : clamp(c0, 1, 3));
+            const dn = 137 - clamp(n0, 125, 137);
+            const da = 3.5 - clamp(a0, 1.5, 3.5);
+            const raw = (sex === 'female' ? 1.33 : 0) + 4.56 * lb + 0.82 * dn - 0.24 * dn * lb
+                + 9.09 * li + 11.14 * lc + 1.85 * da - 1.83 * da * lc + 6;
+            const score = Math.min(Math.round(raw), 40);
+            const surv90 = 100 * Math.pow(0.946, Math.exp(0.17698 * score - 3.56));
+            return { score, surv90 };
+        }
+
+        // Milan：單顆 ≤ 5 cm 或 2–3 顆皆 ≤ 3 cm，且無血管侵犯、無肝外轉移
+        function milan({ count, size, vascular, extrahepatic }) {
+            if (vascular || extrahepatic) return false;
+            return (count === 1 && size <= 5) || (count <= 3 && size <= 3);
+        }
+
+        const SYSTEMIC = '全身性系統治療：一線首選 Atezolizumab + Bevacizumab、Durvalumab + Tremelimumab 或 Nivolumab + Ipilimumab；有禁忌時可選 Sorafenib、Lenvatinib 或 Durvalumab 單藥。';
+
+        function bclc(t, cpClass, ecog) {
+            const count = num(t.count), size = num(t.size);
+            if (count === null || size === null || count < 1 || size <= 0 || !cpClass) return null;
+            const n = Math.round(count);
+            const inMilan = milan({ count: n, size, vascular: t.vascular, extrahepatic: t.extrahepatic });
+            const upTo7 = t.vascular || t.extrahepatic ? null : (n + size <= 7);
+            const notes = [];
+            const out = (stage, reason, treatment) => ({ stage, reason, treatment, notes, milan: inMilan, upTo7 });
+
+            if (ecog >= 3 || cpClass === 'C') {
+                if (cpClass === 'C' && inMilan) notes.push('Child-Pugh C 但腫瘤符合 Milan 標準：若為移植候選者，應轉介肝臟移植評估。');
+                return out('Stage D (末期)',
+                    ecog >= 3 ? `ECOG ${ecog}（PS > 2）` : '末期肝功能 (Child-Pugh C)',
+                    '最佳支持性療法 (Best Supportive Care)、症狀控制與安寧緩和照護。');
+            }
+
+            const liver = cpClass === 'A' ? '肝功能保留' : 'Child-Pugh B';
+            if (cpClass === 'B') notes.push('Child-Pugh B：BCLC 0–C 期以「肝功能保留」為前提；B8–9、腹水或黃疸者多不適合切除 / TACE，系統治療證據亦有限，需 MDT 個別化評估。');
+
+            if (t.vascular || t.extrahepatic || ecog >= 1) {
+                const why = [t.vascular && '大血管侵犯', t.extrahepatic && '肝外轉移', ecog >= 1 && `ECOG ${ecog}`].filter(Boolean).join('、');
+                return out('Stage C (晚期)', why, SYSTEMIC);
+            }
+
+            if (n === 1 && size <= 2) {
+                notes.push('燒灼位置不佳（近大血管、膽管、肝包膜）時，改以手術切除。');
+                if (t.ltCandidate) notes.push('移植候選者可同時列入移植評估。');
+                return out('Stage 0 (極早期)', `單顆 ≤ 2 cm、ECOG 0、${liver}`,
+                    '局部燒灼術 (RFA / MWA)；門脈壓與膽紅素正常者亦可手術切除。');
+            }
+
+            if (n === 1) {
+                if (size > 5) notes.push('單顆 > 5 cm 已超出 Milan 標準，移植需經 downstaging 或擴大標準評估。');
+                if (!t.portalHTN) return out('Stage A (早期)', `單顆腫瘤、ECOG 0、${liver}`, '手術切除為首選（門脈壓與膽紅素正常）。');
+                return out('Stage A (早期)', '單顆腫瘤，但合併門脈高壓或膽紅素升高',
+                    t.ltCandidate ? '肝臟移植。' : '局部燒灼術 (RFA / MWA)；不可行時考慮 TACE（治療階段轉移）。');
+            }
+
+            if (n <= 3 && size <= 3) {
+                return out('Stage A (早期)', `2–3 顆、皆 ≤ 3 cm、ECOG 0、${liver}`,
+                    t.ltCandidate ? '肝臟移植。' : '局部燒灼術 (RFA / MWA)；不可行時考慮 TACE 或切除。');
+            }
+
+            const why = n > 3 ? `多發性 (${n} 顆)` : '2–3 顆且最大 > 3 cm';
+            if (t.diffuse) return out('Stage B (中期)', `${why}，瀰漫 / 浸潤型或廣泛兩葉侵犯`, SYSTEMIC);
+            notes.push('TACE 適用於邊界清楚、門脈血流保留、可選擇性進入腫瘤血管者；TACE 無效或不適合時轉換為系統治療。');
+            return out('Stage B (中期)', `${why}，ECOG 0、${liver}`,
+                t.ltCandidate ? '符合擴大標準 (如 up-to-7 / downstaging 成功) 者可評估肝臟移植；否則經動脈化學栓塞術 (TACE)。' : '經動脈化學栓塞術 (TACE)。');
+        }
+
+        // 數值合理範圍（超出時僅提醒，不阻擋計算）
+        const RANGES = {
+            bilirubin: ['總膽紅素', 0.1, 50], albumin: ['白蛋白', 1, 6], inr: ['INR', 0.8, 10],
+            creatinine: ['肌酸酐', 0.1, 20], na: ['血清鈉', 100, 180]
+        };
+        function rangeWarnings(lab) {
+            return Object.entries(RANGES).flatMap(([k, [label, lo, hi]]) => {
+                const v = num(lab[k]);
+                return v !== null && (v < lo || v > hi) ? [`${label} ${v} 超出常見範圍 (${lo}–${hi})，請確認單位與數值`] : [];
+            });
+        }
+
+        return { num, childPugh, albi, meld, meldNa, meld3, milan, bclc, rangeWarnings };
+    })();
+    if (typeof module !== 'undefined') module.exports = HCC;
+    /*ENGINE-END*/
+    </script>
+
+    <script>
         const { createApp, ref, computed } = Vue;
 
         createApp({
             setup() {
-                // 輸入數據狀態
-                const lab = ref({ bilirubin: 1.0, albumin: 4.0, inr: 1.0, creatinine: 1.0, na: 140, dialysis: false });
+                // 輸入數據狀態（v-model 不加 .number，以便辨識空白欄位）
+                const lab = ref({ bilirubin: '1.0', albumin: '4.0', inr: '1.0', creatinine: '1.0', na: '140', sex: 'male', dialysis: false, cholestatic: false });
                 const clinical = ref({ encephalopathy: 1, ascites: 1, ecog: 0 });
-                const tumor = ref({ count: 'single', size: '<=2', vascular: false, extrahepatic: false });
+                const tumor = ref({ count: '1', size: '1.5', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false });
 
-                // 1. Child-Pugh 計算
-                const childPughScore = computed(() => {
-                    let score = 0;
-                    // 膽紅素
-                    if (lab.value.bilirubin < 2) score += 1;
-                    else if (lab.value.bilirubin <= 3) score += 2;
-                    else score += 3;
-                    // 白蛋白
-                    if (lab.value.albumin > 3.5) score += 1;
-                    else if (lab.value.albumin >= 2.8) score += 2;
-                    else score += 3;
-                    // INR
-                    if (lab.value.inr < 1.7) score += 1;
-                    else if (lab.value.inr <= 2.3) score += 2;
-                    else score += 3;
-                    
-                    score += clinical.value.encephalopathy;
-                    score += clinical.value.ascites;
-                    return score;
+                const labels = { bilirubin: '總膽紅素', albumin: '白蛋白', inr: 'INR', creatinine: '肌酸酐', na: '血清鈉', count: '腫瘤數量', size: '最大直徑' };
+                const bad = computed(() => {
+                    const r = {};
+                    for (const k of ['bilirubin', 'albumin', 'inr', 'creatinine', 'na']) r[k] = HCC.num(lab.value[k]) === null && !(k === 'creatinine' && lab.value.dialysis);
+                    const c = HCC.num(tumor.value.count), s = HCC.num(tumor.value.size);
+                    r.count = c === null || c < 1;
+                    r.size = s === null || s <= 0;
+                    return r;
                 });
+                const missing = computed(() => Object.keys(bad.value).filter(k => bad.value[k]).map(k => labels[k]));
+                const warnings = computed(() => HCC.rangeWarnings(lab.value));
 
-                const childPughClass = computed(() => {
-                    const s = childPughScore.value;
-                    if (s <= 6) return 'A';
-                    if (s <= 9) return 'B';
-                    return 'C';
+                const input = computed(() => ({ ...lab.value, ...clinical.value }));
+                const cp = computed(() => HCC.childPugh(input.value));
+                const albi = computed(() => HCC.albi(input.value));
+                const meld = computed(() => HCC.meld(input.value));
+                const meldNa = computed(() => HCC.meldNa(input.value));
+                const meld3 = computed(() => HCC.meld3(input.value));
+                const bclc = computed(() => HCC.bclc(tumor.value, cp.value && cp.value.cls, clinical.value.ecog));
+
+                const summary = computed(() => {
+                    if (!cp.value || !bclc.value) return '';
+                    const lines = [
+                        `Child-Pugh ${cp.value.cls} (${cp.value.score})`,
+                        albi.value && `ALBI ${albi.value.score.toFixed(2)} (grade ${albi.value.grade}, mALBI ${albi.value.mGrade})`,
+                        meld.value && `MELD ${meld.value.score}`,
+                        meldNa.value && `MELD-Na ${meldNa.value.score}`,
+                        meld3.value && `MELD 3.0 ${meld3.value.score} (est. 90-day survival ${meld3.value.surv90.toFixed(1)}%)`,
+                        `BCLC ${bclc.value.stage}：${bclc.value.reason}`,
+                        `建議：${bclc.value.treatment}`,
+                        `Milan ${bclc.value.milan ? '符合' : '不符合'}`
+                    ];
+                    return lines.filter(Boolean).join('\n');
                 });
-
-                // 2. ALBI 計算
-                const albiScore = computed(() => {
-                    // bilirubin 轉換 μmol/L (*17.1), albumin 轉換 g/L (*10)
-                    const biliUmol = Math.max(lab.value.bilirubin * 17.1, 1);
-                    const albGL = lab.value.albumin * 10;
-                    const score = (Math.log10(biliUmol) * 0.66) + (albGL * -0.085);
-                    return score.toFixed(2);
-                });
-
-                const albiGrade = computed(() => {
-                    const s = parseFloat(albiScore.value);
-                    if (s <= -2.60) return 1;
-                    if (s <= -1.39) return 2;
-                    return 3;
-                });
-
-                // 3. MELD & MELD-Na 計算
-                const getMeldBase = () => {
-                    let b = Math.max(lab.value.bilirubin, 1);
-                    let i = Math.max(lab.value.inr, 1);
-                    let c = Math.max(lab.value.creatinine, 1);
-                    if (lab.value.dialysis) c = 4.0;
-                    if (c > 4.0) c = 4.0;
-                    
-                    let score = 3.78 * Math.log(b) + 11.2 * Math.log(i) + 9.57 * Math.log(c) + 6.43;
-                    return Math.round(score);
+                const copied = ref(false);
+                const copySummary = async () => {
+                    try { await navigator.clipboard.writeText(summary.value); }
+                    catch (e) {
+                        const ta = document.createElement('textarea');
+                        ta.value = summary.value; document.body.appendChild(ta); ta.select();
+                        document.execCommand('copy'); ta.remove();
+                    }
+                    copied.value = true;
+                    setTimeout(() => { copied.value = false; }, 1500);
                 };
 
-                const meldScore = computed(() => getMeldBase());
-
-                const meldNaScore = computed(() => {
-                    let m = getMeldBase();
-                    if (m <= 11) return m;
-                    
-                    let na = Math.max(125, Math.min(lab.value.na, 137));
-                    let score = m + 1.32 * (137 - na) - (0.033 * m * (137 - na));
-                    return Math.round(score);
-                });
-
-                // 4. BCLC 演算法推導
-                const bclcResult = computed(() => {
-                    const isEndStage = clinical.value.ecog >= 3 || childPughClass.value === 'C';
-                    const isAdvanced = tumor.value.vascular || tumor.value.extrahepatic || (clinical.value.ecog > 0 && clinical.value.ecog <= 2);
-                    const isMultinodular = tumor.value.count === 'multi';
-
-                    if (isEndStage) {
-                        return { stage: "Stage D (末期)", treatment: "最佳支持性療法 (Best Supportive Care)、安寧照護，或評估肝臟移植可行性。" };
-                    }
-                    
-                    if (isAdvanced) {
-                        return { stage: "Stage C (晚期)", treatment: "全身性系統治療 (Systemic Therapy)，例如免疫標靶組合 (Atezolizumab + Bevacizumab) 或口服標靶藥物。" };
-                    }
-
-                    if (isMultinodular) {
-                        return { stage: "Stage B (中期)", treatment: "經動脈化學栓塞術 (TACE)。若腫瘤瀰漫，可考慮提早轉換為全身性系統治療。" };
-                    }
-
-                    // 剩下 Stage 0 或 Stage A
-                    if (tumor.value.count === 'single' && tumor.value.size === '<=2') {
-                        return { stage: "Stage 0 (極早期)", treatment: "局部射頻燒灼術 (RFA / MWA) 或 手術切除。" };
-                    }
-
-                    return { stage: "Stage A (早期)", treatment: "手術切除為首選 (若門脈壓與膽紅素正常)。若不適合手術，首選射頻燒灼術 (RFA) 或評估肝臟移植。" };
-                });
-
-                return { lab, clinical, tumor, childPughScore, childPughClass, albiScore, albiGrade, meldScore, meldNaScore, bclcResult };
+                return { lab, clinical, tumor, bad, missing, warnings, cp, albi, meld, meldNa, meld3, bclc, summary, copied, copySummary };
             }
         }).mount('#app');
     </script>
