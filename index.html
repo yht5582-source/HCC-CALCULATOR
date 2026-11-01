@@ -39,7 +39,7 @@
     <div id="app" v-cloak class="max-w-5xl mx-auto p-4 sm:p-6">
         <header class="mb-6 text-center sm:text-left">
             <h1 class="text-2xl font-bold text-slate-800">肝細胞癌與肝病預後計算機</h1>
-            <p class="text-sm text-slate-500 mt-1">整合 Child-Pugh、ALBI / mALBI、MELD / MELD-Na / MELD 3.0 及 BCLC 2022 分期系統</p>
+            <p class="text-sm text-slate-500 mt-1">整合 Child-Pugh、ALBI / mALBI、MELD / MELD-Na / MELD 3.0 及 BCLC 2026 分期系統</p>
         </header>
 
         <nav class="tabbar" role="tablist" aria-label="頁面分頁">
@@ -117,7 +117,7 @@
                         </div>
                         <div class="flex items-start">
                             <input type="checkbox" v-model="clinical.jaundice" id="jaundice" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
-                            <label for="jaundice" class="ml-2 block text-sm text-slate-700">臨床黃疸，或過去曾失代償 <span class="text-slate-400">(不計入 Child-Pugh，但判為肝功能未保留)</span></label>
+                            <label for="jaundice" class="ml-2 block text-sm text-slate-700">臨床黃疸，或過去曾失代償（靜脈曲張出血、肝腦病變等）<span class="text-slate-400">(不計入 Child-Pugh，但判為肝功能未保留)</span></label>
                         </div>
                         <div>
                             <label for="ecog" class="block text-sm font-medium text-slate-700 mb-1">ECOG 體能狀態</label>
@@ -146,6 +146,10 @@
                                 <label for="size" class="block text-sm font-medium text-slate-700">最大腫瘤直徑 (cm)</label>
                                 <input id="size" type="number" inputmode="decimal" v-model="tumor.size" min="0" step="0.1" :class="['field', {bad: bad.size}]">
                             </div>
+                        </div>
+                        <div>
+                            <label for="afp" class="block text-sm font-medium text-slate-700">AFP (ng/mL) <span class="text-slate-400 font-normal">選填，&gt; 1000 視為移植禁忌</span></label>
+                            <input id="afp" type="number" inputmode="decimal" v-model="tumor.afp" min="0" step="1" class="field">
                         </div>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             <div class="flex items-start">
@@ -214,10 +218,12 @@
 
                 <!-- BCLC 決策結果 -->
                 <div class="bg-white p-6 rounded-xl shadow-lg border-t-4 border-blue-600">
-                    <h2 class="text-xl font-bold text-slate-800 mb-2">BCLC 臨床分期 <span class="text-sm font-normal text-slate-400">(2022)</span></h2>
+                    <h2 class="text-xl font-bold text-slate-800 mb-2">BCLC 臨床分期 <span class="text-sm font-normal text-slate-400">(2026)</span></h2>
                     <template v-if="bclc">
                         <div class="text-3xl font-black text-blue-700 mb-1">{{ bclc.stage }}</div>
-                        <div class="text-sm text-slate-500 mb-4">{{ bclc.reason }}</div>
+                        <div class="text-sm text-slate-500">{{ bclc.reason }}</div>
+                        <div v-if="bclc.os" class="text-sm text-slate-500 mb-4">第一線治療後預期中位存活：{{ bclc.os }}</div>
+                        <div v-else class="mb-4"></div>
 
                         <h3 class="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-2">國際指引首選治療策略</h3>
                         <div class="bg-blue-50 border-l-4 border-blue-500 p-4 rounded-r text-slate-700 font-medium">
@@ -237,7 +243,7 @@
                         {{ copied ? '已複製 ✓' : '複製摘要（病歷用）' }}
                     </button>
                     <p class="text-xs text-slate-400 mt-4 leading-relaxed">
-                        * 免責聲明：本工具依 BCLC 2022 (Reig et al., J Hepatol 2022)、EASL 2025 HCC 指引、AASLD 2023 指引與 OPTN MELD 3.0 (Kim et al., Gastroenterology 2021) 推算，僅供醫療專業人員參考。實際治療計畫應由多專科團隊 (MDT) 根據患者整體狀況與禁忌症進行最終評估。
+                        * 免責聲明：本工具依 BCLC 2026 (Reig et al., J Hepatol 2026;84:631)、EASL 2025 HCC 指引、AASLD 2023 指引與 OPTN MELD 3.0 (Kim et al., Gastroenterology 2021) 推算，僅供醫療專業人員參考。實際治療計畫應由多專科團隊 (MDT) 根據患者整體狀況與禁忌症進行最終評估。
                     </p>
                 </div>
             </div>
@@ -320,7 +326,7 @@
                     <ul class="maptree"><map-node v-for="(n, j) in side.c" :key="n.t" :node="n" :path="i + '.' + j"></map-node></ul>
                 </div>
             </div>
-            <p class="text-xs text-slate-400 mt-3">依 BCLC 2022、BCLC 2026、AASLD 2023、Mazzaferro 1996 / 2009、Johnson 2015、Kim 2021 與各試驗整理。分支依教學需要簡化，實際治療由 MDT 決定。</p>
+            <p class="text-xs text-slate-400 mt-3">依 BCLC 2026、AASLD 2023、Mazzaferro 1996 / 2009、Johnson 2015、Kim 2021 與各試驗整理。分支依教學需要簡化，實際治療由 MDT 決定。</p>
         </section>
     </div>
 
@@ -401,40 +407,45 @@
             return (count === 1 && size <= 5) || (count <= 3 && size <= 3);
         }
 
-        const SYSTEMIC = '全身性系統治療：一線首選 Atezolizumab + Bevacizumab、Durvalumab + Tremelimumab 或 Nivolumab + Ipilimumab；有禁忌時可選 Sorafenib、Lenvatinib 或 Durvalumab 單藥。';
+        const SYSTEMIC = '全身性系統治療：第一線免疫合併療法擇一（無頭對頭比較）：Atezolizumab + Bevacizumab、Durvalumab + Tremelimumab、Nivolumab + Ipilimumab 或 Camrelizumab + Rivoceranib。';
+        const OS = { early: '> 5 年', B: '> 2.5 年', C: '約 2 年', D: '< 1 年' };
 
-        // BCLC 2022：腹水、黃疸、肝腦病變即肝功能未保留，不論 Child-Pugh 或 MELD 分數
+        // BCLC 2026：是否失代償決定路徑，與 Child-Pugh 分數無關
         function decompensated({ encephalopathy, ascites, jaundice }) {
             return encephalopathy > 1 || ascites > 1 || !!jaundice;
         }
 
+        // BCLC 2026 (Reig, J Hepatol 2026;84:631)，治療路徑依第 5 圖
         function bclc(t, cpClass, ecog, decomp = false) {
-            const count = num(t.count), size = num(t.size);
+            const count = num(t.count), size = num(t.size), afp = num(t.afp);
             if (count === null || size === null || count < 1 || size <= 0 || !cpClass) return null;
             const n = Math.round(count);
             const inMilan = milan({ count: n, size, vascular: t.vascular, extrahepatic: t.extrahepatic });
             const upTo7 = t.vascular || t.extrahepatic ? null : (n + size <= 7);
+            const afpBlocks = afp !== null && afp > 1000;
+            const ltOK = !!t.ltCandidate && !afpBlocks;
             const notes = [];
-            const out = (stage, reason, treatment) => ({ stage, reason, treatment, notes, milan: inMilan, upTo7 });
+            if (t.ltCandidate && afpBlocks) notes.push('AFP > 1000 ng/mL：移植後復發風險過高，普遍視為移植禁忌，但不排除其他治療。');
+            const out = (stage, reason, treatment, os) => ({ stage, reason, treatment, os, notes, milan: inMilan, upTo7 });
 
             const notPreserved = decomp || cpClass === 'C';
             const SUPPORTIVE = '最佳支持性療法 (Best Supportive Care)、症狀控制與安寧緩和照護。';
 
             if (ecog >= 3) {
                 if (notPreserved && inMilan) notes.push('肝功能未保留但腫瘤符合 Milan 標準：若體能下降主因為肝病，且為移植候選者，應轉介肝臟移植評估。');
-                return out('Stage D (末期)', `ECOG ${ecog}（PS > 2）`, SUPPORTIVE);
+                return out('Stage D (末期)', `ECOG ${ecog}（PS > 2）`, SUPPORTIVE, OS.D);
             }
 
             if (notPreserved) {
                 const why = cpClass === 'C' ? '末期肝功能 (Child-Pugh C)' : '臨床失代償（腹水、肝腦病變或黃疸），肝功能未保留';
-                if (inMilan && t.ltCandidate) {
-                    notes.push('因腫瘤以外的因素無法移植時，歸為 Stage D。');
-                    return out('LT 評估 (肝功能未保留，腫瘤在 Milan 內)', why, '轉介肝臟移植評估。');
+                if (inMilan && ltOK) {
+                    notes.push('因腫瘤以外的因素無法移植時，歸為 Stage D；暫時性的禁忌改善後可再評估。');
+                    return out('LT 評估 (肝功能未保留，腫瘤在 Milan 內)', why, '轉介肝臟移植評估。', null);
                 }
-                if (inMilan) notes.push('腫瘤符合 Milan 標準：若為移植候選者，應轉介肝臟移植評估。');
-                else if (t.ltCandidate) notes.push('腫瘤超出 Milan 標準：依各機構的擴大或降階標準評估移植。');
-                if (cpClass !== 'C') notes.push('肝功能經病因治療或併發症控制後再代償者，可重新評估腫瘤治療 (BCLC 2026)。');
-                return out('Stage D (末期)', why, SUPPORTIVE);
+                if (inMilan && !t.ltCandidate) notes.push('腫瘤符合 Milan 標準：若為移植候選者，應轉介肝臟移植評估。');
+                else if (ltOK) notes.push('腫瘤超出 Milan 標準：依各機構的擴大或降階標準評估移植。');
+                notes.push('少數病人經病因治療或併發症控制後可再代償，之後可重新評估系統治療或移植。');
+                return out('Stage D (末期)', why, SUPPORTIVE, OS.D);
             }
 
             const liver = cpClass === 'A' ? '肝功能保留' : 'Child-Pugh B';
@@ -442,33 +453,47 @@
 
             if (t.vascular || t.extrahepatic || ecog >= 1) {
                 const why = [t.vascular && '大血管侵犯', t.extrahepatic && '肝外轉移', ecog >= 1 && `ECOG ${ecog}`].filter(Boolean).join('、');
-                return out('Stage C (晚期)', why, SYSTEMIC);
+                notes.push('無法使用時：Sorafenib、Lenvatinib、Durvalumab 或 Tislelizumab。');
+                notes.push('第二線的 RCT 僅在 Sorafenib 之後：Regorafenib、Cabozantinib，或 Ramucirumab（AFP ≥ 400 ng/mL）。免疫治療後的最佳序列尚未確立。');
+                notes.push('系統治療有禁忌或不可行時，TARE 或 EBRT 可經 MDT 評估考慮，證據有限。');
+                return out('Stage C (晚期)', why, SYSTEMIC, OS.C);
             }
 
-            if (n === 1 && size <= 2) {
-                notes.push('燒灼位置不佳（近大血管、膽管、肝包膜）時，改以手術切除。');
-                if (t.ltCandidate) notes.push('移植候選者可同時列入移植評估。');
-                return out('Stage 0 (極早期)', `單顆 ≤ 2 cm、ECOG 0、${liver}`,
-                    '局部燒灼術 (RFA / MWA)；門脈壓與膽紅素正常者亦可手術切除。');
+            if (n === 1 && size <= 2 && !t.ltCandidate) {
+                notes.push('MW 對 3–4 cm 內腫瘤的局部控制比 RFA 可靠。位置不佳時，TARE、EBRT 或 TACE 可為替代；周邊腫瘤也可考慮微創切除。');
+                return out('Stage 0 (極早期)', `單顆 ≤ 2 cm、ECOG 0、${liver}，非移植候選者`,
+                    '局部燒灼術 (MW / RFA)。', OS.early);
             }
 
             if (n === 1) {
+                const stage = size <= 2 ? 'Stage 0 (極早期)' : 'Stage A (早期)';
                 if (size > 5) notes.push('單顆 > 5 cm 已超出 Milan 標準，移植需經 downstaging 或擴大標準評估。');
-                if (!t.portalHTN) return out('Stage A (早期)', `單顆腫瘤、ECOG 0、${liver}`, '手術切除為首選（門脈壓與膽紅素正常）。');
-                return out('Stage A (早期)', '單顆腫瘤，但合併門脈高壓或膽紅素升高',
-                    t.ltCandidate ? '肝臟移植。' : '局部燒灼術 (RFA / MWA)；不可行時考慮 TACE（治療階段轉移）。');
+                if (!t.portalHTN) {
+                    notes.push('切除後有微血管侵犯或衛星結節者，可考慮直接移植。不能切除時改用燒灼。');
+                    return out(stage, `單顆腫瘤、ECOG 0、${liver}，門脈壓與膽紅素正常`, '手術切除為首選（優先微創）。', OS.early);
+                }
+                const reason = '單顆腫瘤，但合併門脈高壓或膽紅素升高';
+                if (ltOK) {
+                    notes.push('等候移植期間，可用燒灼或動脈內局部治療作為橋接。');
+                    return out(stage, reason, '肝臟移植。', OS.early);
+                }
+                notes.push('CSPH 輕微、周邊腫瘤且殘肝足夠者，可考慮微創切除。');
+                return out(stage, reason, size <= 3 ? '局部燒灼術 (MW / RFA)。'
+                    : '局部燒灼術 (MW / RFA)；腫瘤較大、燒灼效果不佳時考慮 TACE、TARE 或 EBRT。', OS.early);
             }
 
             if (n <= 3 && size <= 3) {
-                return out('Stage A (早期)', `2–3 顆、皆 ≤ 3 cm、ECOG 0、${liver}`,
-                    t.ltCandidate ? '肝臟移植。' : '局部燒灼術 (RFA / MWA)；不可行時考慮 TACE 或切除。');
+                if (ltOK) return out('Stage A (早期)', `2–3 顆、皆 ≤ 3 cm、ECOG 0、${liver}`, '肝臟移植。', OS.early);
+                notes.push('切除、TARE 或 EBRT 僅在特定肝功能良好的病人，經 MDT 評估後考慮。');
+                return out('Stage A (早期)', `2–3 顆、皆 ≤ 3 cm、ECOG 0、${liver}`, '局部燒灼術 (MW / RFA)；不可行時 TACE。', OS.early);
             }
 
             const why = n > 3 ? `多發性 (${n} 顆)` : '2–3 顆且最大 > 3 cm';
-            if (t.diffuse) return out('Stage B (中期)', `${why}，瀰漫 / 浸潤型或廣泛兩葉侵犯`, SYSTEMIC);
-            notes.push('TACE 適用於邊界清楚、門脈血流保留、可選擇性進入腫瘤血管者；TACE 無效或不適合時轉換為系統治療。');
+            if (t.diffuse) return out('Stage B (中期)', `${why}，瀰漫 / 浸潤型或廣泛兩葉侵犯`, SYSTEMIC, OS.B);
+            notes.push('TACE 適用於邊界清楚、門脈血流保留、可選擇性進入腫瘤血管者。因技術因素不能做時，可用 TARE 或 EBRT 延後系統治療；因腫瘤負擔不適合時，改系統治療。');
+            notes.push('無法治療的進展 (untreatable progression)：轉為下一階段治療。TACE 合併系統治療目前不建議在臨床試驗外使用。');
             return out('Stage B (中期)', `${why}，ECOG 0、${liver}`,
-                t.ltCandidate ? '符合擴大標準 (如 up-to-7 / downstaging 成功) 者可評估肝臟移植；否則經動脈化學栓塞術 (TACE)。' : '經動脈化學栓塞術 (TACE)。');
+                ltOK ? '符合院內擴大標準（大小、AFP）者評估肝臟移植，含降階或橋接；否則經動脈化學栓塞術 (TACE)。' : '經動脈化學栓塞術 (TACE)。', OS.B);
         }
 
         // 數值合理範圍（超出時僅提醒，不阻擋計算）
@@ -494,18 +519,18 @@
     // 教學病例（虛構）。in 帶入計算機；expect 與文字中的數字由 tests.cjs 對照引擎。
     const HCC_CASES = [
         { id: 'c1', t: '監測發現的小結節', s: '不必常規切片', tag: 'Stage 0',
-          who: '62 歲男性，慢性 B 型肝炎肝硬化，規則服用 entecavir。每 6 個月超音波加 AFP，這次發現 S6 新結節 1.8 cm，AFP 12 ng/mL。多相 MRI：動脈期非環狀增強 (APHE) 加延遲期洗出。總膽紅素 0.8、白蛋白 4.2、INR 1.1、肌酸酐 0.9、Na 140。無腹水、無肝腦病變，ECOG 0，血小板 165k，內視鏡無靜脈曲張。',
-          in: { lab: { bilirubin: '0.8', albumin: '4.2', inr: '1.1', creatinine: '0.9', na: '140', sex: 'male' }, clinical: { encephalopathy: 1, ascites: 1, ecog: 0 }, tumor: { count: '1', size: '1.8' } },
+          who: '62 歲男性，慢性 B 型肝炎肝硬化，規則服用 entecavir，目前不考慮移植。每 6 個月超音波加 AFP，這次發現 S6 新結節 1.8 cm，AFP 12 ng/mL。多相 MRI：動脈期非環狀增強 (APHE) 加延遲期洗出。總膽紅素 0.8、白蛋白 4.2、INR 1.1、肌酸酐 0.9、Na 140。無腹水、無肝腦病變，ECOG 0，血小板 165k，內視鏡無靜脈曲張。',
+          in: { lab: { bilirubin: '0.8', albumin: '4.2', inr: '1.1', creatinine: '0.9', na: '140', sex: 'male' }, clinical: { encephalopathy: 1, ascites: 1, ecog: 0 }, tumor: { count: '1', size: '1.8', afp: '12' } },
           expect: { cp: 'A5', albi: '−2.82', grade: 1, mGrade: '1', meld: 7, meldNa: 7, meld3: 7, stage: '0', milan: true, upTo7: true, treat: '燒灼' },
           steps: [
               ['影像確診', '10–19 mm 的結節，APHE 加洗出符合 LR-5。LI-RADS 適用於肝硬化與部分慢性 B 肝等監測族群，本例可由影像確診，不必常規切片。'],
               ['全身評估', '多相 MRI 已評估肝內腫瘤範圍。FDG-PET 敏感度只有 50–65%，AASLD 不建議用於分期；胸部 CT 尤其建議用於 ≥ 2 cm 的腫瘤，本例可依個案安排。'],
               ['肝功能', 'Child-Pugh A5；ALBI −2.82（grade 1）；MELD 7。肝功能保留，也沒有門脈高壓的線索。'],
-              ['分期與治療', '單顆 ≤ 2 cm、ECOG 0 為 Stage 0。工具建議局部燒灼；BCLC 2022 指出，不考慮移植時，燒灼的存活與切除相近。位置靠近大血管或膽管、燒灼不易時改切除。'],
+              ['分期與治療', '單顆 ≤ 2 cm、ECOG 0 為 Stage 0。BCLC 2026 流程圖：非移植候選者首選燒灼（MW 或 RFA）；移植候選者才依門脈壓與膽紅素分流，正常者切除，升高者移植。SURF 試驗也未顯示切除的存活優於 RFA。位置不佳時，可考慮 TARE、EBRT 或 TACE，周邊腫瘤也可考慮微創切除。'],
               ['治療後', '肝硬化與 B 肝都還在，復發風險沒有消失。繼續抗病毒治療與影像追蹤。']
           ],
           trap: ['AFP 正常不能排除 HCC，本例的診斷靠影像。', '在非監測族群（例如沒有肝硬化也沒有慢性 B 肝）不能直接套用 LI-RADS。', 'Milan 是移植篩選標準，不是分期；符合 Milan 不代表應該移植。'],
-          src: 'BCLC 2022（Reig）；AASLD 2023（Singal）' },
+          src: 'BCLC 2026（Reig）；AASLD 2023（Singal）' },
         { id: 'c2', t: '肝功能 A 級，卻不適合切除', s: '門脈高壓改變選項', tag: 'Stage A',
           who: '58 歲女性，C 型肝炎肝硬化，已達 SVR。S5 單顆 4 cm，MRI 符合 LR-5，胸部 CT 無轉移。血小板 78k、小型靜脈曲張、HVPG 12 mmHg。總膽紅素 1.3、白蛋白 3.8、INR 1.2、肌酸酐 0.8、Na 138。無腹水，ECOG 0。',
           in: { lab: { bilirubin: '1.3', albumin: '3.8', inr: '1.2', creatinine: '0.8', na: '138', sex: 'female' }, clinical: { encephalopathy: 1, ascites: 1, ecog: 0 }, tumor: { count: '1', size: '4', portalHTN: true } },
@@ -514,51 +539,51 @@
               ['肝功能', 'Child-Pugh A5，但 ALBI −2.34 是 grade 2（mALBI 2a）。Child-Pugh 沒有計入門脈高壓，HVPG 12 mmHg 才是這題的關鍵。'],
               ['分期', '單顆腫瘤不論大小都是 Stage A，4 cm 也一樣，符合 Milan 與 up-to-7。'],
               ['先問移植', '有 CSPH 的單顆腫瘤，切除的併發症與長期存活都較差。勾選「移植候選者」後，工具建議改為肝臟移植。'],
-              ['不能移植時', '工具建議燒灼，不可行時考慮 TACE。AASLD 提醒 > 3 cm 或靠近重要構造的腫瘤，可能更適合其他局部治療，例如放射性節段切除術或體外放射治療。'],
-              ['切除還有機會嗎', 'BCLC 2022：位置合適、CSPH 輕微時可考慮腹腔鏡切除，但沒有可用的門脈壓切點，也無法給出強建議。交給 MDT 討論。']
+              ['不能移植時', '燒灼仍是主要選項，MW 對 3–4 cm 內腫瘤的局部控制比 RFA 可靠。本例 4 cm，燒灼效果可能不佳，工具同時列出 TACE、TARE、EBRT。AASLD 也提醒 > 3 cm 或靠近重要構造的腫瘤，可能更適合放射性節段切除術或體外放射治療。'],
+              ['切除還有機會嗎', 'BCLC 2026：單顆周邊腫瘤、CSPH 輕微且殘肝足夠時，仍可考慮微創切除。交給 MDT 討論。']
           ],
           trap: ['把 Child-Pugh A 直接等同可以切除。', '以為腫瘤大就要升期：單顆 8 cm 仍是 Stage A。', '脂肪肝相關肝硬化的 HVPG 準確度有爭議，判讀要保守。'],
-          src: 'BCLC 2022；AASLD 2023；Mazzaferro 1996, 2009' },
+          src: 'BCLC 2026；AASLD 2023；Mazzaferro 1996, 2009' },
         { id: 'c3', t: '多發腫瘤與反覆 TACE', s: '何時該停止栓塞', tag: 'Stage B',
           who: '66 歲男性，代謝性脂肪肝炎肝硬化。兩葉共 4 顆結節，最大 3 cm，邊界清楚，門靜脈通暢，AFP 35 ng/mL。總膽紅素 0.9、白蛋白 3.7、INR 1.1、肌酸酐 1.1、Na 139。無腹水，ECOG 0。',
-          in: { lab: { bilirubin: '0.9', albumin: '3.7', inr: '1.1', creatinine: '1.1', na: '139', sex: 'male' }, clinical: { encephalopathy: 1, ascites: 1, ecog: 0 }, tumor: { count: '4', size: '3' } },
+          in: { lab: { bilirubin: '0.9', albumin: '3.7', inr: '1.1', creatinine: '1.1', na: '139', sex: 'male' }, clinical: { encephalopathy: 1, ascites: 1, ecog: 0 }, tumor: { count: '4', size: '3', afp: '35' } },
           expect: { cp: 'A5', albi: '−2.36', grade: 2, mGrade: '2a', meld: 8, meldNa: 8, meld3: 8, stage: 'B', milan: false, upTo7: true, treat: 'TACE' },
           steps: [
               ['分期', '4 顆超過 BCLC-A 的 3 顆上限，為 Stage B。Child-Pugh A5；ALBI −2.36，mALBI 2a。不符合 Milan；up-to-7 為 4 + 3 = 7，符合。'],
-              ['選次分組', 'BCLC 2022 把 B 期分成三群：符合院內擴大標準者評估移植；邊界清楚、門脈血流保留、可選擇性進入者做 TACE；瀰漫、浸潤或廣泛兩葉者做系統治療。本例選 TACE。'],
-              ['移植這條路', '擴大標準由各機構界定，復發率較高。AFP > 1000 ng/mL 目前是排除條件。'],
-              ['TACE 後', '兩次 TACE 後仍長出新結節，白蛋白也往下掉。這是無法治療的進展 (untreatable progression)，應移轉到下一階段的系統治療，不要等肝功能惡化到無法接受系統治療。'],
-              ['TACE 合併系統治療', 'EMERALD-1（PFS HR 0.77）與 LEAP-012（PFS HR 0.66）的 PFS 較佳，但 3–4 級不良反應增加，OS 目前未證實有顯著差異，應由 MDT 個別決定。']
+              ['選次分組', 'BCLC 2026 沿用 2022 的三群：符合院內擴大標準者評估移植；邊界清楚、門脈血流保留、可選擇性進入者做 TACE；瀰漫、浸潤或廣泛兩葉者做系統治療。本例選 TACE。'],
+              ['移植這條路', '擴大標準由各機構界定。AFP > 1000 ng/mL 普遍視為移植禁忌，但不排除其他治療。降階成功者可再評估移植。'],
+              ['TACE 後', '兩次 TACE 後仍長出新結節，白蛋白也往下掉。這是無法治療的進展 (untreatable progression)，應轉為下一階段的系統治療，不要等肝功能惡化到無法接受系統治療。BCLC 2026 指出，即使影像上沒有進展，也可能達到這個判定。'],
+              ['TACE 合併系統治療', 'EMERALD-1、LEAP-012、TALENTACE 的 PFS 較佳（HR 0.64–0.77），但 OS 資料未成熟，LEAP-012 的廠商新聞稿也指出不太可能達到 OS 顯著差異。BCLC 2026 不建議在臨床試驗外使用。']
           ],
           trap: ['B 期差異很大，同一期的預後和 AFP、肝功能都有關。', '只因為「還打得到」就繼續 TACE，把病人的肝功能耗盡。', 'Up-to-7 來自移植族群，是預後工具，不是 BCLC 的分期條件。'],
-          src: 'BCLC 2022；Mazzaferro 2009；Singal 2026 回顧（EMERALD-1、LEAP-012）' },
+          src: 'BCLC 2026；Mazzaferro 2009；Singal 2026 回顧（EMERALD-1、LEAP-012）' },
         { id: 'c4', t: '門靜脈侵犯要開始系統治療', s: '先照胃鏡再選藥', tag: 'Stage C',
           who: '55 歲男性，慢性 B 型肝炎，規則服用 entecavir。右葉 7 cm 腫瘤，合併門靜脈右支腫瘤栓，右上腹悶痛（ECOG 1），AFP 1,200 ng/mL。總膽紅素 1.1、白蛋白 3.4、INR 1.2、肌酸酐 0.9、Na 136。無腹水，血壓 128/78。胃鏡：靜脈曲張伴紅色徵象，未曾出血。',
-          in: { lab: { bilirubin: '1.1', albumin: '3.4', inr: '1.2', creatinine: '0.9', na: '136', sex: 'male' }, clinical: { encephalopathy: 1, ascites: 1, ecog: 1 }, tumor: { count: '1', size: '7', vascular: true } },
+          in: { lab: { bilirubin: '1.1', albumin: '3.4', inr: '1.2', creatinine: '0.9', na: '136', sex: 'male' }, clinical: { encephalopathy: 1, ascites: 1, ecog: 1 }, tumor: { count: '1', size: '7', afp: '1200', vascular: true } },
           expect: { cp: 'A6', albi: '−2.05', grade: 2, mGrade: '2b', meld: 9, meldNa: 9, meld3: 9, stage: 'C', milan: false, upTo7: null, treat: '系統治療' },
           steps: [
               ['分期', '大血管侵犯加上 ECOG 1 為 Stage C。Child-Pugh A6（白蛋白 3.4 得 2 分）；ALBI −2.05，mALBI 2b。'],
               ['補齊分期', 'AFP > 1000 ng/mL 或有大血管侵犯時，AASLD 認為可考慮骨骼掃描與骨盆 CT，找無症狀的骨轉移。'],
-              ['第一線用藥', 'AASLD 建議用 atezolizumab + bevacizumab 前先做胃鏡；有高風險出血徵象者可考慮 durvalumab + tremelimumab。BCLC 2022 要求靜脈曲張已妥善處理且無出血史。本例可選 STRIDE，或處理靜脈曲張後再用 bevacizumab 方案。'],
+              ['第一線用藥', 'BCLC 2026 列出四個免疫合併療法，彼此沒有頭對頭比較，由 MDT 與病人依目標擇一：atezolizumab + bevacizumab、durvalumab + tremelimumab、nivolumab + ipilimumab、camrelizumab + rivoceranib。AASLD 建議用 atezolizumab + bevacizumab 前先做胃鏡，有高風險出血徵象者可考慮 durvalumab + tremelimumab。本例可選後者，或處理靜脈曲張後再用 bevacizumab 方案。'],
               ['療效數字', 'IMbrave150 更新：OS 19.2 vs 13.4 個月（HR 0.66）。HIMALAYA：OS 16.43 vs 13.77 個月（HR 0.78）。CheckMate 9DW：OS 23.7 vs 20.6 個月（HR 0.79）。三者對照組不同，也沒有頭對頭比較，不能直接比高低。'],
-              ['免疫治療不適用時', '嚴重自體免疫疾病或移植後，AASLD 建議改用 sorafenib 或 lenvatinib。'],
-              ['第二線', 'Regorafenib、cabozantinib、ramucirumab 的 RCT 都以 sorafenib 治療過的病人為主，ramucirumab 限 AFP ≥ 400 ng/mL。AASLD 認為 atezolizumab + bevacizumab 後優先用 sorafenib 或 lenvatinib。']
+              ['免疫治療不適用時', '嚴重自體免疫疾病或移植後，AASLD 建議改用 sorafenib 或 lenvatinib。BCLC 2026 另列 durvalumab、tislelizumab。系統治療有禁忌或不可行時，TARE 或 EBRT 可經 MDT 評估考慮，門靜脈侵犯的證據仍有限。'],
+              ['第二線', 'Regorafenib、cabozantinib、ramucirumab 的 RCT 都以 sorafenib 治療過的病人為主，ramucirumab 限 AFP ≥ 400 ng/mL。BCLC 2026 指出免疫治療後的最佳序列尚未確立，應優先保留肝功能、考量耐受性與臨床試驗；AASLD 2023 則傾向 sorafenib 或 lenvatinib。']
           ],
           trap: ['只看 Child-Pugh 與分期就開藥，漏掉胃鏡。', 'AFP ≥ 400 ng/mL 是 ramucirumab 第二線的條件，不是第一線選藥依據。', '跨試驗比較中位存活。'],
-          src: 'BCLC 2022；AASLD 2023；Cheng 2022；Abou-Alfa 2022；Yau 2025；Zhu 2019；Bruix 2017；Abou-Alfa 2018' },
+          src: 'BCLC 2026；AASLD 2023；Cheng 2022；Abou-Alfa 2022；Yau 2025；Zhu 2019；Bruix 2017；Abou-Alfa 2018' },
         { id: 'c5', t: '腫瘤不大，但已有腹水', s: 'Child-Pugh B 也可能是 D 期', tag: 'Stage D',
           who: '71 歲男性，酒精性肝硬化，戒酒 3 個月。S3 單顆 3 cm，符合 LR-5。腹水靠利尿劑控制，無肝腦病變，ECOG 0。總膽紅素 2.4、白蛋白 2.9、INR 1.5、肌酸酐 1.2、Na 131。肝臟移植評估尚未開始。',
           in: { lab: { bilirubin: '2.4', albumin: '2.9', inr: '1.5', creatinine: '1.2', na: '131', sex: 'male' }, clinical: { encephalopathy: 1, ascites: 2, ecog: 0 }, tumor: { count: '1', size: '3', portalHTN: true } },
           expect: { cp: 'B8', albi: '−1.40', grade: 2, mGrade: '2b', meld: 16, meldNa: 21, meld3: 20, surv90: '94.7', stage: 'D', milan: true, upTo7: true, treat: '支持性' },
           steps: [
               ['先算分數', 'Child-Pugh B8；ALBI −1.40，grade 2，差 0.01 就到 grade 3；MELD 16、MELD-Na 21、MELD 3.0 為 20（估計 90 天存活 94.7%）。'],
-              ['只看腫瘤會判錯', '單顆 3 cm、ECOG 0，只看腫瘤條件像 Stage A。但 BCLC 2022 指出，黃疸、腹水、肝腦病變等失代償，不論 Child-Pugh 或 MELD 幾分，都代表肝功能未保留。'],
+              ['只看腫瘤會判錯', '單顆 3 cm、ECOG 0，只看腫瘤條件像 Stage A。但 BCLC 2026 明確以是否失代償分流，與 Child-Pugh 分數無關；腹水、靜脈曲張出血、曾有肝腦病變都是嚴重門脈高壓的徵象。'],
               ['工具判為 Stage D', '腹水選「輕度 / 利尿劑可控」就會判為肝功能未保留，所以雖然是 Child-Pugh B8，工具仍顯示 Stage D，不走燒灼或切除的路徑。'],
-              ['先問移植', '腫瘤在 Milan 內，應先轉介移植評估。帶入計算機後勾選「為肝臟移植候選者」，輸出會改為移植評估。若因腫瘤以外的因素不能移植，BCLC 2022 歸為 Stage D。'],
-              ['往後怎麼走', '持續處理病因與併發症。BCLC 2026 提到，肝功能再代償者可重新進入腫瘤治療路徑，由 MDT 共同決定。']
+              ['先問移植', '腫瘤在 Milan 內，應先轉介移植評估。帶入計算機後勾選「為肝臟移植候選者」，輸出會改為移植評估。若因腫瘤以外的因素不能移植，BCLC 2026 歸為 Stage D。'],
+              ['往後怎麼走', '持續戒酒並處理併發症。BCLC 2026 提到，酒精性肝硬化約 15–20% 持續戒酒後可再代償，之後可重新評估治療；但真正符合 Baveno VII 再代償標準的只有約 7%，不能當成預期結果。']
           ],
           trap: ['只看腫瘤大小，就安排燒灼或切除。', 'ALBI grade 2 或 Child-Pugh B 不代表肝功能保留。', '系統治療試驗多限 Child-Pugh A，B 級的資料有限，不能直接外推。'],
-          src: 'BCLC 2022；BCLC 2026（Reig）；AASLD 2023；Johnson 2015；Kim 2021' },
+          src: 'BCLC 2026（Reig）；AASLD 2023；Johnson 2015；Kim 2021' },
         { id: 'c6', t: '末期肝病合併小腫瘤', s: '先評估能否移植', tag: '移植評估',
           who: '52 歲女性，原發性膽汁性膽管炎 (PBC)。難治型腹水，肝腦病變 2 級，服藥控制。S7 單顆 2.5 cm，符合 LR-5。總膽紅素 6、白蛋白 2.6、INR 1.8、肌酸酐 1.4、Na 129。體能下降來自肝病，ECOG 2。可接受移植評估。',
           in: { lab: { bilirubin: '6', albumin: '2.6', inr: '1.8', creatinine: '1.4', na: '129', sex: 'female', cholestatic: true }, clinical: { encephalopathy: 2, ascites: 3, ecog: 2 }, tumor: { count: '1', size: '2.5', ltCandidate: true } },
@@ -567,11 +592,11 @@
               ['切換膽汁淤積切點', 'PBC 的膽紅素切點改用 4 / 10 mg/dL，6 mg/dL 得 2 分，Child-Pugh C12。不切換會是 13 分，本例兩者都是 C 級。'],
               ['分數', 'ALBI −0.88（grade 3）；MELD 23、MELD-Na 27、MELD 3.0 為 29（估計 90 天存活 76.5%）。MELD 3.0 另外納入女性與白蛋白。'],
               ['肝功能未保留', 'Child-Pugh C 加上腹水與肝腦病變，肝功能未保留。本例 ECOG 2 來自肝病，所以關鍵是肝功能，不是腫瘤。'],
-              ['移植', '腫瘤符合 Milan 且為移植候選者，工具輸出移植評估。BCLC 2022 提到，這類病人是因末期肝病本身而取得移植順位，HCC 不是列入等候的主因。'],
+              ['移植', '腫瘤符合 Milan 且為移植候選者，工具輸出移植評估。BCLC 2026：符合移植條件者應直接走移植。若因腫瘤以外的因素不能移植，歸為 Stage D，但有些禁忌是暫時的，改善後可再評估。'],
               ['不能移植時', '帶入計算機後取消「為肝臟移植候選者」，輸出會變成 Stage D。因腫瘤以外的因素不能移植時，以症狀控制與安寧緩和照護為主，並及早討論照護目標。不適合移植的 Child-Pugh C 也不需要繼續做 HCC 監測。']
           ],
           trap: ['看到 Stage D 就直接轉安寧，沒有先評估移植。', '腫瘤很小就去做燒灼，卻沒有處理末期肝病本身。', 'PBC 沒有切換膽汁淤積切點，膽紅素的得分會被高估。'],
-          src: 'BCLC 2022；AASLD 2023；Kim 2021' }
+          src: 'BCLC 2026；AASLD 2023；Kim 2021' }
     ];
     /*CASES-END*/
 
@@ -583,7 +608,7 @@
         { id: 'b2', lv: '基礎', q: 'ALBI 分數使用哪兩項數值？', o: ['白蛋白與 INR', '膽紅素與 INR', '白蛋白與膽紅素', '膽紅素與肌酸酐'], a: 2,
           why: 'ALBI 只用白蛋白與膽紅素，不需主觀判斷腹水或肝腦病變。', src: 'Johnson 2015' },
         { id: 'b3', lv: '基礎', q: 'BCLC 0 期的腫瘤條件是？', o: ['單顆 ≤ 2 cm', '單顆 ≤ 3 cm', '單顆 ≤ 5 cm', '≤ 3 顆且皆 ≤ 2 cm'], a: 0,
-          why: 'BCLC 0 為單顆 ≤ 2 cm，且肝功能保留、PS 0。', src: 'BCLC 2022' },
+          why: 'BCLC 0 為單顆 ≤ 2 cm，且肝功能保留、PS 0。', src: 'BCLC 2026' },
         { id: 'b4', lv: '基礎', q: '下列何者符合 Milan 標準（均無血管侵犯與肝外轉移）？', o: ['單顆 5.5 cm', '2 顆，最大 3.5 cm', '4 顆，皆 ≤ 2 cm', '單顆 5 cm'], a: 3,
           why: 'Milan 為單顆 ≤ 5 cm，或 ≤ 3 顆且每顆 ≤ 3 cm。', src: 'Mazzaferro 1996' },
         { id: 'b5', lv: '基礎', q: '3 顆腫瘤，最大 4 cm，無血管侵犯。Up-to-7 判讀為何？', o: ['符合，3 + 4 = 7', '不符合，超過 Milan', '符合，因為腫瘤皆 ≤ 5 cm', '不符合，需 < 7'], a: 0,
@@ -593,32 +618,32 @@
         { id: 'b7', lv: '基礎', q: '肝硬化病人有 2.5 cm 結節，多相 MRI 顯示 APHE 與延遲期洗出。下一步最合適的是？', o: ['先切片確認', '依 LR-5 診斷 HCC，接著分期', '3 個月後再做 MRI', '先做 FDG-PET'], a: 1,
           why: '≥ 2 cm 的結節有 APHE 加上一項附加特徵（洗出、包膜、閾值成長）即為 LR-5，可不切片診斷。FDG-PET 不建議用於分期。', src: 'AASLD 2023' },
         { id: 'b8', lv: '基礎', q: '2 顆腫瘤，最大 3.5 cm，Child-Pugh A，ECOG 0，無血管侵犯，非移植候選者。工具會給的分期與首選是？', o: ['A 期，燒灼', 'A 期，切除', 'C 期，系統治療', 'B 期，TACE'], a: 3,
-          why: '多顆腫瘤只要有一顆 > 3 cm，就超過 A 期條件，為 B 期，首選 TACE。', src: 'BCLC 2022' },
+          why: '多顆腫瘤只要有一顆 > 3 cm，就超過 A 期條件，為 B 期，首選 TACE。', src: 'BCLC 2026' },
         { id: 'b9', lv: '基礎', q: 'MELD 3.0 相較 MELD-Na，新增了哪些變項？', o: ['女性與白蛋白', '年齡與白蛋白', '女性與血小板', '腹水與白蛋白'], a: 0,
           why: 'MELD 3.0 新增女性與白蛋白，並把肌酸酐上限降為 3.0 mg/dL。', src: 'Kim 2021' },
         { id: 'b10', lv: '基礎', q: '單顆 2 cm 腫瘤合併門靜脈侵犯，Child-Pugh A，ECOG 0。分期與治療方向是？', o: ['0 期，燒灼', 'A 期，切除', 'C 期，系統治療', 'B 期，TACE'], a: 2,
-          why: '大血管侵犯或肝外轉移就是 C 期，與腫瘤大小無關，應評估系統治療。', src: 'BCLC 2022' },
+          why: '大血管侵犯或肝外轉移就是 C 期，與腫瘤大小無關，應評估系統治療。', src: 'BCLC 2026' },
 
         { id: 'a1', lv: '高階', q: 'Stage C、Child-Pugh A，準備第一線免疫治療，胃鏡發現高風險靜脈曲張。AASLD 認為可考慮？', o: ['不處理，直接 atezolizumab + bevacizumab', 'Durvalumab + tremelimumab', '改做 TACE', '只給支持性治療'], a: 1,
           why: '高風險出血徵象者可考慮不含 VEGF 抑制劑的 durvalumab + tremelimumab。BCLC 2022 也要求使用 bevacizumab 前靜脈曲張已妥善處理。', src: 'AASLD 2023；BCLC 2022' },
         { id: 'a2', lv: '高階', q: 'CheckMate 9DW 的 OS 曲線早期交叉，前 6 個月死亡 HR 1.65，之後 0.61，整體 0.79。最合理的解讀是？', o: ['整體無效，不應使用', '前 6 個月風險低於對照組', '長期效益已被早期死亡抵銷', '整體 OS 有益，但選病人時要留意早期死亡風險'], a: 3,
           why: '整體 OS 達統計顯著（23.7 vs 20.6 個月），但前 6 個月死亡較多。臨床上應評估短期進展與不良反應風險，並向病人說明。', src: 'Yau 2025' },
-        { id: 'a3', lv: '高階', q: '單顆 3 cm、ECOG 0、Child-Pugh B8，腹水靠利尿劑控制。依 BCLC 2022 應如何看？', o: ['腹水代表肝功能未保留，先評估移植；不能移植歸為 D 期', '依腫瘤條件歸為 A 期，直接切除', 'Child-Pugh B8 仍屬保留，照常燒灼', '應改以 ALBI grade 決定分期'], a: 0,
-          why: 'BCLC 2022 指出失代償不論 Child-Pugh 或 MELD 分數，都代表肝功能未保留，不能只看腫瘤條件。', src: 'BCLC 2022' },
+        { id: 'a3', lv: '高階', q: '單顆 3 cm、ECOG 0、Child-Pugh B8，腹水靠利尿劑控制。依 BCLC 2026 應如何看？', o: ['腹水代表肝功能未保留，先評估移植；不能移植歸為 D 期', '依腫瘤條件歸為 A 期，直接切除', 'Child-Pugh B8 仍屬保留，照常燒灼', '應改以 ALBI grade 決定分期'], a: 0,
+          why: 'BCLC 2026 以是否失代償分流，與 Child-Pugh 分數無關，不能只看腫瘤條件。', src: 'BCLC 2026' },
         { id: 'a4', lv: '高階', q: 'IMbrave050 期中分析 RFS HR 0.72；更新分析 RFS HR 0.90（95% CI 0.72–1.12），OS HR 1.26（95% CI 0.85–1.87，資料未成熟）。如何解讀？', o: ['所有高風險病人都應使用', '已證實延長 OS', 'RFS 差距已不再顯著，OS 未顯示獲益', '已證實縮短 OS'], a: 2,
           why: '更新後 RFS 的信賴區間跨過 1，OS 資料尚未成熟且無法確立獲益或傷害。不應只引用最初的 0.72。', src: 'IMbrave050 更新 2026' },
-        { id: 'a5', lv: '高階', q: 'EMERALD-1 與 LEAP-012 在 TACE 上加系統治療，目前證據是？', o: ['OS 與 PFS 都已確定改善', 'PFS 改善，3–4 級不良反應增加，OS 未證實顯著差異', '都沒有達到 PFS 終點', '不良反應與單獨 TACE 相同'], a: 1,
-          why: 'PFS HR 分別為 0.77 與 0.66，但 3–4 級不良反應增加，OS 目前未顯示顯著差異。應個別化並由 MDT 決定。', src: 'Singal 2026 回顧' },
+        { id: 'a5', lv: '高階', q: 'EMERALD-1 與 LEAP-012 在 TACE 上加系統治療，目前證據是？', o: ['OS 與 PFS 都已確定改善', 'PFS 改善，OS 未證實，目前不建議在臨床試驗外使用', '都沒有達到 PFS 終點', '不良反應與單獨 TACE 相同'], a: 1,
+          why: 'PFS HR 分別為 0.77 與 0.66，但 3–4 級不良反應增加，OS 目前未顯示顯著差異。BCLC 2026 不建議在臨床試驗外使用。', src: 'BCLC 2026；Singal 2026 回顧' },
         { id: 'a6', lv: '高階', q: '關於第二線試驗，下列何者正確？', o: ['RESORCE 不要求 sorafenib 耐受', 'Ramucirumab 不限 AFP', 'Cabozantinib 僅限 Child-Pugh B', 'REACH-2 收案條件包含 AFP ≥ 400 ng/mL 且曾用 sorafenib'], a: 3,
           why: 'REACH-2 收 AFP ≥ 400 ng/mL、Child-Pugh A、一線 sorafenib 的病人。RESORCE 要求可耐受 sorafenib。這些試驗都不是在免疫治療之後做的。', src: 'Zhu 2019；Bruix 2017；Abou-Alfa 2018' },
         { id: 'a7', lv: '高階', q: '接受免疫檢查點抑制劑的病人，之後要移植。AASLD 建議？', o: ['移植前至少停藥 3 個月', '移植前 1 週停藥即可', '不需停藥', '移植後立即繼續'], a: 0,
-          why: 'AASLD 建議移植前至少停藥 3 個月，同時指出最佳間隔仍未確立；也反對在移植後使用免疫檢查點抑制劑，因移植物喪失與死亡風險高。', src: 'AASLD 2023' },
-        { id: 'a8', lv: '高階', q: 'BCLC 2022 討論移植時，AFP 的哪個濃度目前被當作排除條件？', o: ['> 20 ng/mL', '> 1000 ng/mL', '> 400 ng/mL', '> 200 ng/mL'], a: 1,
-          why: 'AFP > 1000 ng/mL 目前作為排除條件。AFP 下降的幅度與持續時間要達到多少才能移植，尚無可靠資料。', src: 'BCLC 2022' },
+          why: 'AASLD 建議移植前至少停藥 3 個月，同時指出最佳間隔仍未確立；也反對在移植後使用免疫檢查點抑制劑，因移植物喪失與死亡風險高。', src: 'AASLD 2023；BCLC 2026' },
+        { id: 'a8', lv: '高階', q: 'BCLC 2026 討論移植時，AFP 的哪個濃度目前被當作排除條件？', o: ['> 20 ng/mL', '> 1000 ng/mL', '> 400 ng/mL', '> 200 ng/mL'], a: 1,
+          why: 'AFP > 1000 ng/mL 普遍視為移植禁忌，但不排除其他治療。AFP 下降的幅度與持續時間要達到多少才能移植，尚無可靠資料。', src: 'BCLC 2026' },
         { id: 'a9', lv: '高階', q: '洗腎中的病人，MELD-Na 與 MELD 3.0 計算時的肌酸酐分別以多少代入？', o: ['都以 4.0', '都以 3.0', '4.0 與 3.0', '3.0 與 4.0'], a: 2,
           why: 'MELD 與 MELD-Na 以 4.0 計，MELD 3.0 的肌酸酐上限是 3.0。例如膽紅素 1.2、INR 1.3、Na 135、白蛋白 3.0 的洗腎男性，MELD-Na 24、MELD 3.0 為 23。', src: 'OPTN；Kim 2021' },
         { id: 'a10', lv: '高階', q: '單顆 1.5 cm、Child-Pugh A，無腫瘤症狀，但因膝關節退化 ECOG 2。工具顯示 Stage C，應如何處理？', o: ['直接開始系統治療', '只做支持性治療', '因 ECOG 2 不能做任何局部治療', 'BCLC 的 PS 指癌症相關症狀，應由 MDT 重新判讀，局部治療仍可考慮'], a: 3,
-          why: '工具只讀 ECOG 數字。BCLC 的 PS 指癌症相關症狀，共病造成的體能下降不等於腫瘤進展，應回到個別評估。', src: 'BCLC 2022' }
+          why: '工具只讀 ECOG 數字。BCLC 2026 明確指出 ECOG 反映癌症相關症狀，共病或衰弱造成的體能下降不等於腫瘤進展，應回到個別評估。', src: 'BCLC 2026' }
     ];
     /*QUIZ-END*/
 
@@ -649,50 +674,53 @@
                 { t: 'ALBI：≤ −2.60 G1；≤ −1.39 G2；其餘 G3' },
                 { t: 'mALBI：−2.27 分 2a / 2b' },
                 { t: 'MELD 3.0：加入女性與白蛋白，肌酸酐上限 3.0' },
-                { t: '腹水、黃疸、肝腦病變 = 肝功能未保留，不論分數' },
-                { t: 'CSPH：HVPG > 10 mmHg，切除風險上升' }
+                { t: '腹水、黃疸、肝腦病變、靜脈曲張出血 = 失代償，不論分數' },
+                { t: 'CSPH：HVPG ≥ 10 mmHg，切除風險上升' }
             ] },
             { t: '體能狀態', c: [
-                { t: 'BCLC 的 PS 指癌症相關症狀' },
+                { t: 'ECOG 反映癌症相關症狀，不含共病或肝病' },
                 { t: 'PS 1–2 為 C 期；PS > 2 為 D 期' },
                 { t: '因共病造成的下降，由 MDT 重新判讀' }
             ] }
         ] },
         { t: '分期與治療', c: [
-            { t: 'Stage 0：單顆 ≤ 2 cm', c: [
-                { t: '不考慮移植：燒灼，存活與切除相近' },
-                { t: '位置不佳：切除' },
-                { t: '切除後有微血管侵犯或衛星結節：可考慮移植' }
+            { t: 'Stage 0：單顆 ≤ 2 cm（中位存活 > 5 年）', c: [
+                { t: '非移植候選者：燒灼（MW / RFA）' },
+                { t: '移植候選者：門脈壓與膽紅素正常則切除，升高則移植' },
+                { t: '替代：TARE、EBRT、TACE；周邊腫瘤可微創切除' }
             ] },
-            { t: 'Stage A：單顆，或 ≤ 3 顆皆 ≤ 3 cm', c: [
-                { t: '單顆、無 CSPH：切除' },
+            { t: 'Stage A：單顆 > 2 cm，或 ≤ 3 顆皆 ≤ 3 cm（> 5 年）', c: [
+                { t: '單顆、無 CSPH：切除，優先微創' },
                 { t: '單顆、有 CSPH：可移植則移植，否則燒灼' },
-                { t: '2–3 顆：可移植則移植，否則燒灼' },
-                { t: '> 3 cm 不適合燒灼：TACE、放射性節段切除或 EBRT' }
+                { t: '2–3 顆：可移植則移植，否則燒灼；不可行時 TACE' },
+                { t: '腫瘤大、燒灼效果差：TACE、TARE 或 EBRT' },
+                { t: '切除後有微血管侵犯或衛星結節：可考慮直接移植' }
             ] },
-            { t: 'Stage B：多發，超過 A 期條件', c: [
-                { t: '符合院內擴大標準：評估移植；AFP > 1000 排除' },
+            { t: 'Stage B：> 3 顆，或 ≤ 3 顆且有一顆 > 3 cm（> 2.5 年）', c: [
+                { t: '符合院內擴大標準（大小、AFP）：評估移植' },
                 { t: '邊界清楚、門脈通暢、可選擇性進入：TACE' },
                 { t: '瀰漫、浸潤、廣泛兩葉：系統治療' },
-                { t: '無法治療的進展：轉系統治療' },
-                { t: 'TACE 合併系統治療：PFS 較佳，OS 未證實顯著差異' }
+                { t: '技術上不能做 TACE：TARE 或 EBRT，延後系統治療' },
+                { t: 'TACE 合併系統治療：不建議在臨床試驗外使用' }
             ] },
-            { t: 'Stage C：大血管侵犯、肝外轉移或 PS 1–2', c: [
-                { t: '第一線前：胃鏡檢查靜脈曲張' },
-                { t: 'Atezolizumab + bevacizumab（IMbrave150，HR 0.66）' },
-                { t: 'Durvalumab + tremelimumab（HIMALAYA，HR 0.78）：高風險靜脈曲張時可考慮' },
-                { t: 'Nivolumab + ipilimumab（CheckMate 9DW，HR 0.79）：前 6 個月死亡較多' },
-                { t: '免疫禁忌：sorafenib 或 lenvatinib' },
-                { t: '第二線 RCT 以 sorafenib 後為主；ramucirumab 限 AFP ≥ 400' }
+            { t: 'Stage C：大血管侵犯或肝外轉移、PS 0–2（約 2 年）', c: [
+                { t: '四個免疫合併療法皆優於對照，無頭對頭比較，由 MDT 與病人擇一' },
+                { t: 'Atezolizumab + bevacizumab（IMbrave150）：先做胃鏡' },
+                { t: 'Durvalumab + tremelimumab（HIMALAYA）：高風險靜脈曲張時可考慮' },
+                { t: 'Nivolumab + ipilimumab（CheckMate 9DW）：前 6 個月死亡較多' },
+                { t: 'Camrelizumab + rivoceranib：僅 17% 來自非亞洲國家' },
+                { t: '不可行：sorafenib、lenvatinib、durvalumab、tislelizumab' },
+                { t: '第二線 RCT 僅在 sorafenib 後；免疫治療後序列未確立' }
             ] },
-            { t: 'Stage D：肝功能未保留或 PS > 2', c: [
-                { t: '腫瘤在 Milan 內：先評估移植' },
+            { t: 'Stage D：肝功能未保留且不能移植，或 PS > 2（< 1 年）', c: [
+                { t: '腫瘤在 Milan 內且符合條件：直接評估移植' },
                 { t: '不能移植：症狀控制與安寧緩和照護' },
-                { t: 'BCLC 2026：再代償者可重新進入腫瘤治療路徑' }
+                { t: '再代償者可重新評估，但真正符合標準的只有約 7%' }
             ] },
             { t: '貫穿所有分期', c: [
-                { t: '治療階段轉移：首選不可行時，改用下一階段的選項' },
-                { t: 'MDT 討論，並納入病人的目標與價值' },
+                { t: '治療階段轉移：首選不可行時，改用其他階段的選項' },
+                { t: '無法治療的進展：轉為下一階段治療' },
+                { t: 'CUSE：複雜性、不確定性、主觀性、情緒，納入 MDT 與共同決策' },
                 { t: '輔助治療：IMbrave050 更新後 RFS HR 0.90，OS 未成熟' }
             ] }
         ] }
@@ -707,7 +735,7 @@
                 // 輸入數據狀態（v-model 不加 .number，以便辨識空白欄位）
                 const lab = ref({ bilirubin: '1.0', albumin: '4.0', inr: '1.0', creatinine: '1.0', na: '140', sex: 'male', dialysis: false, cholestatic: false });
                 const clinical = ref({ encephalopathy: 1, ascites: 1, jaundice: false, ecog: 0 });
-                const tumor = ref({ count: '1', size: '1.5', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false });
+                const tumor = ref({ count: '1', size: '1.5', afp: '', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false });
 
                 const labels = { bilirubin: '總膽紅素', albumin: '白蛋白', inr: 'INR', creatinine: '肌酸酐', na: '血清鈉', count: '腫瘤數量', size: '最大直徑' };
                 const bad = computed(() => {
@@ -739,6 +767,7 @@
                         meld3.value && `MELD 3.0 ${meld3.value.score} (est. 90-day survival ${meld3.value.surv90.toFixed(1)}%)`,
                         `${bclc.value.stage.startsWith('LT') ? '' : 'BCLC '}${bclc.value.stage}：${bclc.value.reason}`,
                         `建議：${bclc.value.treatment}`,
+                        bclc.value.os && `預期中位存活 ${bclc.value.os}`,
                         `Milan ${bclc.value.milan ? '符合' : '不符合'}`
                     ];
                     return lines.filter(Boolean).join('\n');
@@ -764,7 +793,7 @@
 
                 // 示範病例
                 const LAB0 = { bilirubin: '', albumin: '', inr: '', creatinine: '', na: '', sex: 'male', dialysis: false, cholestatic: false };
-                const TUMOR0 = { count: '', size: '', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false };
+                const TUMOR0 = { count: '', size: '', afp: '', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false };
                 const cases = HCC_CASES;
                 const caseId = ref(cases[0].id);
                 const activeCase = computed(() => cases.find(c => c.id === caseId.value));

@@ -84,7 +84,7 @@ t('90-day survival at MELD 20 ≈ 94.7%', () => {
 });
 t('missing albumin → null', () => assert.equal(H.meld3(lab({ albumin: '' })), null));
 
-console.log('BCLC 2022');
+console.log('BCLC 2026');
 t('single 1.5 cm, PS0, CP-A → 0', () => assert.equal(stage({}), '0'));
 t('single 2.0 cm → 0', () => assert.equal(stage({ size: '2' }), '0'));
 t('single 2.5 cm → A', () => assert.equal(stage({ size: '2.5' }), 'A'));
@@ -97,6 +97,40 @@ t('portal invasion → C', () => assert.equal(stage({ vascular: true }), 'C'));
 t('extrahepatic → C', () => assert.equal(stage({ extrahepatic: true }), 'C'));
 t('ECOG 1 with small tumour → C', () => assert.equal(stage({}, 'A', 1), 'C'));
 t('ECOG 3 → D', () => assert.equal(stage({}, 'A', 3), 'D'));
+t('stage 0, not LT candidate → ablation (Fig. 5)', () => {
+  const r = H.bclc(tu(), 'A', 0);
+  assert.match(r.treatment, /燒灼/); assert.doesNotMatch(r.treatment, /切除/);
+});
+t('stage 0, LT candidate: normal portal pressure → resection; raised → transplant', () => {
+  assert.match(H.bclc(tu({ ltCandidate: true }), 'A', 0).treatment, /切除/);
+  assert.equal(stage({ ltCandidate: true }), '0');
+  assert.match(H.bclc(tu({ ltCandidate: true, portalHTN: true }), 'A', 0).treatment, /移植/);
+});
+t('AFP > 1000 blocks transplant, not other treatment', () => {
+  const a = { size: '3', portalHTN: true, ltCandidate: true };
+  assert.match(H.bclc(tu({ ...a, afp: '1000' }), 'A', 0).treatment, /移植/);
+  const r = H.bclc(tu({ ...a, afp: '1001' }), 'A', 0);
+  assert.match(r.treatment, /燒灼/); assert.doesNotMatch(r.treatment, /移植/);
+  assert.ok(r.notes.some(n => n.includes('AFP')));
+});
+t('AFP > 1000 + decompensated + Milan → D, not LT', () => assert.equal(H.bclc(tu({ size: '3', ltCandidate: true, afp: '2000' }), 'B', 0, true).stage.split(' ')[1], 'D'));
+t('stage A: 4 cm with CSPH lists alternatives; 3 cm does not', () => {
+  assert.match(H.bclc(tu({ size: '4', portalHTN: true }), 'A', 0).treatment, /TARE/);
+  assert.doesNotMatch(H.bclc(tu({ size: '3', portalHTN: true }), 'A', 0).treatment, /TARE/);
+});
+t('first-line list has all four combinations', () => {
+  const x = H.bclc(tu({ vascular: true }), 'A', 0).treatment;
+  ['Atezolizumab', 'Durvalumab', 'Nivolumab', 'Camrelizumab'].forEach(d => assert.ok(x.includes(d), d));
+});
+t('expected survival by stage', () => {
+  const os = (o, c = 'A', e = 0) => H.bclc(tu(o), c, e).os;
+  assert.equal(os({}), '> 5 年');
+  assert.equal(os({ size: '4' }), '> 5 年');
+  assert.equal(os({ count: '4', size: '2' }), '> 2.5 年');
+  assert.equal(os({ vascular: true }), '約 2 年');
+  assert.equal(os({}, 'A', 3), '< 1 年');
+  assert.equal(H.bclc(tu({ ltCandidate: true }), 'C', 0).os, null);
+});
 t('Child-Pugh C → D, Milan note', () => {
   const r = H.bclc(tu({ size: '4' }), 'C', 0);
   assert.equal(r.stage.split(' ')[1], 'D');
