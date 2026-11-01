@@ -115,6 +115,10 @@
                                 <option :value="3">中重度 / 難治型</option>
                             </select>
                         </div>
+                        <div class="flex items-start">
+                            <input type="checkbox" v-model="clinical.jaundice" id="jaundice" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
+                            <label for="jaundice" class="ml-2 block text-sm text-slate-700">臨床黃疸，或過去曾失代償 <span class="text-slate-400">(不計入 Child-Pugh，但判為肝功能未保留)</span></label>
+                        </div>
                         <div>
                             <label for="ecog" class="block text-sm font-medium text-slate-700 mb-1">ECOG 體能狀態</label>
                             <select id="ecog" v-model.number="clinical.ecog" class="field">
@@ -399,7 +403,12 @@
 
         const SYSTEMIC = '全身性系統治療：一線首選 Atezolizumab + Bevacizumab、Durvalumab + Tremelimumab 或 Nivolumab + Ipilimumab；有禁忌時可選 Sorafenib、Lenvatinib 或 Durvalumab 單藥。';
 
-        function bclc(t, cpClass, ecog) {
+        // BCLC 2022：腹水、黃疸、肝腦病變即肝功能未保留，不論 Child-Pugh 或 MELD 分數
+        function decompensated({ encephalopathy, ascites, jaundice }) {
+            return encephalopathy > 1 || ascites > 1 || !!jaundice;
+        }
+
+        function bclc(t, cpClass, ecog, decomp = false) {
             const count = num(t.count), size = num(t.size);
             if (count === null || size === null || count < 1 || size <= 0 || !cpClass) return null;
             const n = Math.round(count);
@@ -408,15 +417,28 @@
             const notes = [];
             const out = (stage, reason, treatment) => ({ stage, reason, treatment, notes, milan: inMilan, upTo7 });
 
-            if (ecog >= 3 || cpClass === 'C') {
-                if (cpClass === 'C' && inMilan) notes.push('Child-Pugh C 但腫瘤符合 Milan 標準：若為移植候選者，應轉介肝臟移植評估。');
-                return out('Stage D (末期)',
-                    ecog >= 3 ? `ECOG ${ecog}（PS > 2）` : '末期肝功能 (Child-Pugh C)',
-                    '最佳支持性療法 (Best Supportive Care)、症狀控制與安寧緩和照護。');
+            const notPreserved = decomp || cpClass === 'C';
+            const SUPPORTIVE = '最佳支持性療法 (Best Supportive Care)、症狀控制與安寧緩和照護。';
+
+            if (ecog >= 3) {
+                if (notPreserved && inMilan) notes.push('肝功能未保留但腫瘤符合 Milan 標準：若體能下降主因為肝病，且為移植候選者，應轉介肝臟移植評估。');
+                return out('Stage D (末期)', `ECOG ${ecog}（PS > 2）`, SUPPORTIVE);
+            }
+
+            if (notPreserved) {
+                const why = cpClass === 'C' ? '末期肝功能 (Child-Pugh C)' : '臨床失代償（腹水、肝腦病變或黃疸），肝功能未保留';
+                if (inMilan && t.ltCandidate) {
+                    notes.push('因腫瘤以外的因素無法移植時，歸為 Stage D。');
+                    return out('LT 評估 (肝功能未保留，腫瘤在 Milan 內)', why, '轉介肝臟移植評估。');
+                }
+                if (inMilan) notes.push('腫瘤符合 Milan 標準：若為移植候選者，應轉介肝臟移植評估。');
+                else if (t.ltCandidate) notes.push('腫瘤超出 Milan 標準：依各機構的擴大或降階標準評估移植。');
+                if (cpClass !== 'C') notes.push('肝功能經病因治療或併發症控制後再代償者，可重新評估腫瘤治療 (BCLC 2026)。');
+                return out('Stage D (末期)', why, SUPPORTIVE);
             }
 
             const liver = cpClass === 'A' ? '肝功能保留' : 'Child-Pugh B';
-            if (cpClass === 'B') notes.push('Child-Pugh B：BCLC 0–C 期以「肝功能保留」為前提；B8–9、腹水或黃疸者多不適合切除 / TACE，系統治療證據亦有限，需 MDT 個別化評估。');
+            if (cpClass === 'B') notes.push('Child-Pugh B 但無臨床失代償：肝功能屬灰色地帶，局部治療耐受度較差，系統治療證據亦有限，需 MDT 個別化評估。');
 
             if (t.vascular || t.extrahepatic || ecog >= 1) {
                 const why = [t.vascular && '大血管侵犯', t.extrahepatic && '肝外轉移', ecog >= 1 && `ECOG ${ecog}`].filter(Boolean).join('、');
@@ -461,7 +483,7 @@
             });
         }
 
-        return { num, childPugh, albi, meld, meldNa, meld3, milan, bclc, rangeWarnings };
+        return { num, childPugh, albi, meld, meldNa, meld3, milan, decompensated, bclc, rangeWarnings };
     })();
     if (typeof module !== 'undefined') module.exports = HCC;
     /*ENGINE-END*/
@@ -524,29 +546,29 @@
           ],
           trap: ['只看 Child-Pugh 與分期就開藥，漏掉胃鏡。', 'AFP ≥ 400 ng/mL 是 ramucirumab 第二線的條件，不是第一線選藥依據。', '跨試驗比較中位存活。'],
           src: 'BCLC 2022；AASLD 2023；Cheng 2022；Abou-Alfa 2022；Yau 2025；Zhu 2019；Bruix 2017；Abou-Alfa 2018' },
-        { id: 'c5', t: '工具顯示 Stage A，但已有腹水', s: '肝功能未保留，別照字面讀', tag: '判讀陷阱',
-          who: '71 歲男性，酒精性肝硬化，戒酒 3 個月。S3 單顆 3 cm，符合 LR-5。腹水靠利尿劑控制，無肝腦病變，ECOG 0。總膽紅素 2.4、白蛋白 2.9、INR 1.5、肌酸酐 1.2、Na 131。',
+        { id: 'c5', t: '腫瘤不大，但已有腹水', s: 'Child-Pugh B 也可能是 D 期', tag: 'Stage D',
+          who: '71 歲男性，酒精性肝硬化，戒酒 3 個月。S3 單顆 3 cm，符合 LR-5。腹水靠利尿劑控制，無肝腦病變，ECOG 0。總膽紅素 2.4、白蛋白 2.9、INR 1.5、肌酸酐 1.2、Na 131。肝臟移植評估尚未開始。',
           in: { lab: { bilirubin: '2.4', albumin: '2.9', inr: '1.5', creatinine: '1.2', na: '131', sex: 'male' }, clinical: { encephalopathy: 1, ascites: 2, ecog: 0 }, tumor: { count: '1', size: '3', portalHTN: true } },
-          expect: { cp: 'B8', albi: '−1.40', grade: 2, mGrade: '2b', meld: 16, meldNa: 21, meld3: 20, surv90: '94.7', stage: 'A', milan: true, upTo7: true, treat: '燒灼' },
+          expect: { cp: 'B8', albi: '−1.40', grade: 2, mGrade: '2b', meld: 16, meldNa: 21, meld3: 20, surv90: '94.7', stage: 'D', milan: true, upTo7: true, treat: '支持性' },
           steps: [
               ['先算分數', 'Child-Pugh B8；ALBI −1.40，grade 2，差 0.01 就到 grade 3；MELD 16、MELD-Na 21、MELD 3.0 為 20（估計 90 天存活 94.7%）。'],
-              ['工具怎麼說', '工具只把 Child-Pugh C 歸為 D 期，所以本例依腫瘤條件顯示 Stage A，並附上 Child-Pugh B 的警語。這不是最後答案。'],
-              ['指引怎麼說', 'BCLC 2022：黃疸、腹水、肝腦病變等失代償，不論 Child-Pugh 或 MELD 幾分，都代表肝功能未保留。本例不應以 Stage A 的治療路徑直接處理。'],
-              ['先問移植', '腫瘤在 Milan 內，應先轉介移植評估。若因腫瘤以外的因素不能移植，BCLC 2022 歸為 Stage D。'],
+              ['只看腫瘤會判錯', '單顆 3 cm、ECOG 0，只看腫瘤條件像 Stage A。但 BCLC 2022 指出，黃疸、腹水、肝腦病變等失代償，不論 Child-Pugh 或 MELD 幾分，都代表肝功能未保留。'],
+              ['工具判為 Stage D', '腹水選「輕度 / 利尿劑可控」就會判為肝功能未保留，所以雖然是 Child-Pugh B8，工具仍顯示 Stage D，不走燒灼或切除的路徑。'],
+              ['先問移植', '腫瘤在 Milan 內，應先轉介移植評估。帶入計算機後勾選「為肝臟移植候選者」，輸出會改為移植評估。若因腫瘤以外的因素不能移植，BCLC 2022 歸為 Stage D。'],
               ['往後怎麼走', '持續處理病因與併發症。BCLC 2026 提到，肝功能再代償者可重新進入腫瘤治療路徑，由 MDT 共同決定。']
           ],
-          trap: ['把工具的 Stage A 當成可以燒灼或切除的結論。', 'ALBI grade 2 不代表肝功能保留。', '系統治療試驗多限 Child-Pugh A，B 級的資料有限，不能直接外推。'],
+          trap: ['只看腫瘤大小，就安排燒灼或切除。', 'ALBI grade 2 或 Child-Pugh B 不代表肝功能保留。', '系統治療試驗多限 Child-Pugh A，B 級的資料有限，不能直接外推。'],
           src: 'BCLC 2022；BCLC 2026（Reig）；AASLD 2023；Johnson 2015；Kim 2021' },
-        { id: 'c6', t: '末期肝病合併小腫瘤', s: '先評估能否移植', tag: 'Stage D',
-          who: '52 歲女性，原發性膽汁性膽管炎 (PBC)。難治型腹水，肝腦病變 2 級，服藥控制。S7 單顆 2.5 cm，符合 LR-5。總膽紅素 6、白蛋白 2.6、INR 1.8、肌酸酐 1.4、Na 129。體能下降來自肝病，ECOG 2。',
+        { id: 'c6', t: '末期肝病合併小腫瘤', s: '先評估能否移植', tag: '移植評估',
+          who: '52 歲女性，原發性膽汁性膽管炎 (PBC)。難治型腹水，肝腦病變 2 級，服藥控制。S7 單顆 2.5 cm，符合 LR-5。總膽紅素 6、白蛋白 2.6、INR 1.8、肌酸酐 1.4、Na 129。體能下降來自肝病，ECOG 2。可接受移植評估。',
           in: { lab: { bilirubin: '6', albumin: '2.6', inr: '1.8', creatinine: '1.4', na: '129', sex: 'female', cholestatic: true }, clinical: { encephalopathy: 2, ascites: 3, ecog: 2 }, tumor: { count: '1', size: '2.5', ltCandidate: true } },
-          expect: { cp: 'C12', albi: '−0.88', grade: 3, mGrade: '3', meld: 23, meldNa: 27, meld3: 29, surv90: '76.5', stage: 'D', milan: true, upTo7: true, treat: '支持性' },
+          expect: { cp: 'C12', albi: '−0.88', grade: 3, mGrade: '3', meld: 23, meldNa: 27, meld3: 29, surv90: '76.5', stage: '評估', milan: true, upTo7: true, treat: '移植' },
           steps: [
               ['切換膽汁淤積切點', 'PBC 的膽紅素切點改用 4 / 10 mg/dL，6 mg/dL 得 2 分，Child-Pugh C12。不切換會是 13 分，本例兩者都是 C 級。'],
               ['分數', 'ALBI −0.88（grade 3）；MELD 23、MELD-Na 27、MELD 3.0 為 29（估計 90 天存活 76.5%）。MELD 3.0 另外納入女性與白蛋白。'],
-              ['分期', 'Child-Pugh C 為 Stage D。本例 ECOG 2 來自肝病，所以分期的依據是肝功能，不是腫瘤。'],
-              ['移植', '腫瘤符合 Milan，工具會提示轉介移植評估。BCLC 2022 提到，這類病人是因末期肝病本身而取得移植順位，HCC 不是列入等候的主因。'],
-              ['不能移植時', '因腫瘤以外的因素不能移植時歸為 Stage D，以症狀控制與安寧緩和照護為主，並及早討論照護目標。不適合移植的 Child-Pugh C 也不需要繼續做 HCC 監測。']
+              ['肝功能未保留', 'Child-Pugh C 加上腹水與肝腦病變，肝功能未保留。本例 ECOG 2 來自肝病，所以關鍵是肝功能，不是腫瘤。'],
+              ['移植', '腫瘤符合 Milan 且為移植候選者，工具輸出移植評估。BCLC 2022 提到，這類病人是因末期肝病本身而取得移植順位，HCC 不是列入等候的主因。'],
+              ['不能移植時', '帶入計算機後取消「為肝臟移植候選者」，輸出會變成 Stage D。因腫瘤以外的因素不能移植時，以症狀控制與安寧緩和照護為主，並及早討論照護目標。不適合移植的 Child-Pugh C 也不需要繼續做 HCC 監測。']
           ],
           trap: ['看到 Stage D 就直接轉安寧，沒有先評估移植。', '腫瘤很小就去做燒灼，卻沒有處理末期肝病本身。', 'PBC 沒有切換膽汁淤積切點，膽紅素的得分會被高估。'],
           src: 'BCLC 2022；AASLD 2023；Kim 2021' }
@@ -581,8 +603,8 @@
           why: '高風險出血徵象者可考慮不含 VEGF 抑制劑的 durvalumab + tremelimumab。BCLC 2022 也要求使用 bevacizumab 前靜脈曲張已妥善處理。', src: 'AASLD 2023；BCLC 2022' },
         { id: 'a2', lv: '高階', q: 'CheckMate 9DW 的 OS 曲線早期交叉，前 6 個月死亡 HR 1.65，之後 0.61，整體 0.79。最合理的解讀是？', o: ['整體無效，不應使用', '前 6 個月風險低於對照組', '長期效益已被早期死亡抵銷', '整體 OS 有益，但選病人時要留意早期死亡風險'], a: 3,
           why: '整體 OS 達統計顯著（23.7 vs 20.6 個月），但前 6 個月死亡較多。臨床上應評估短期進展與不良反應風險，並向病人說明。', src: 'Yau 2025' },
-        { id: 'a3', lv: '高階', q: '單顆 3 cm、ECOG 0、Child-Pugh B8，腹水靠利尿劑控制。工具顯示 Stage A，依 BCLC 2022 應如何看？', o: ['腹水代表肝功能未保留，先評估移植；不能移植歸為 D 期', '照 Stage A 直接切除', 'Child-Pugh B8 仍屬保留，照常燒灼', '應改以 ALBI grade 決定分期'], a: 0,
-          why: 'BCLC 2022 指出失代償不論 Child-Pugh 或 MELD 分數，都代表肝功能未保留。工具目前只把 Child-Pugh C 自動歸為 D 期，需自行判讀。', src: 'BCLC 2022' },
+        { id: 'a3', lv: '高階', q: '單顆 3 cm、ECOG 0、Child-Pugh B8，腹水靠利尿劑控制。依 BCLC 2022 應如何看？', o: ['腹水代表肝功能未保留，先評估移植；不能移植歸為 D 期', '依腫瘤條件歸為 A 期，直接切除', 'Child-Pugh B8 仍屬保留，照常燒灼', '應改以 ALBI grade 決定分期'], a: 0,
+          why: 'BCLC 2022 指出失代償不論 Child-Pugh 或 MELD 分數，都代表肝功能未保留，不能只看腫瘤條件。', src: 'BCLC 2022' },
         { id: 'a4', lv: '高階', q: 'IMbrave050 期中分析 RFS HR 0.72；更新分析 RFS HR 0.90（95% CI 0.72–1.12），OS HR 1.26（95% CI 0.85–1.87，資料未成熟）。如何解讀？', o: ['所有高風險病人都應使用', '已證實延長 OS', 'RFS 差距已不再顯著，OS 未顯示獲益', '已證實縮短 OS'], a: 2,
           why: '更新後 RFS 的信賴區間跨過 1，OS 資料尚未成熟且無法確立獲益或傷害。不應只引用最初的 0.72。', src: 'IMbrave050 更新 2026' },
         { id: 'a5', lv: '高階', q: 'EMERALD-1 與 LEAP-012 在 TACE 上加系統治療，目前證據是？', o: ['OS 與 PFS 都已確定改善', 'PFS 改善，3–4 級不良反應增加，OS 未證實顯著差異', '都沒有達到 PFS 終點', '不良反應與單獨 TACE 相同'], a: 1,
@@ -684,7 +706,7 @@
             setup() {
                 // 輸入數據狀態（v-model 不加 .number，以便辨識空白欄位）
                 const lab = ref({ bilirubin: '1.0', albumin: '4.0', inr: '1.0', creatinine: '1.0', na: '140', sex: 'male', dialysis: false, cholestatic: false });
-                const clinical = ref({ encephalopathy: 1, ascites: 1, ecog: 0 });
+                const clinical = ref({ encephalopathy: 1, ascites: 1, jaundice: false, ecog: 0 });
                 const tumor = ref({ count: '1', size: '1.5', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false });
 
                 const labels = { bilirubin: '總膽紅素', albumin: '白蛋白', inr: 'INR', creatinine: '肌酸酐', na: '血清鈉', count: '腫瘤數量', size: '最大直徑' };
@@ -705,7 +727,7 @@
                 const meld = computed(() => HCC.meld(input.value));
                 const meldNa = computed(() => HCC.meldNa(input.value));
                 const meld3 = computed(() => HCC.meld3(input.value));
-                const bclc = computed(() => HCC.bclc(tumor.value, cp.value && cp.value.cls, clinical.value.ecog));
+                const bclc = computed(() => HCC.bclc(tumor.value, cp.value && cp.value.cls, clinical.value.ecog, HCC.decompensated(clinical.value)));
 
                 const summary = computed(() => {
                     if (!cp.value || !bclc.value) return '';
@@ -715,7 +737,7 @@
                         meld.value && `MELD ${meld.value.score}`,
                         meldNa.value && `MELD-Na ${meldNa.value.score}`,
                         meld3.value && `MELD 3.0 ${meld3.value.score} (est. 90-day survival ${meld3.value.surv90.toFixed(1)}%)`,
-                        `BCLC ${bclc.value.stage}：${bclc.value.reason}`,
+                        `${bclc.value.stage.startsWith('LT') ? '' : 'BCLC '}${bclc.value.stage}：${bclc.value.reason}`,
                         `建議：${bclc.value.treatment}`,
                         `Milan ${bclc.value.milan ? '符合' : '不符合'}`
                     ];
@@ -751,7 +773,7 @@
                     const i = { ...LAB0, ...c.in.lab, ...c.in.clinical };
                     const p = HCC.childPugh(i), a = HCC.albi(i), m3 = HCC.meld3(i);
                     return {
-                        bclc: HCC.bclc({ ...TUMOR0, ...c.in.tumor }, p.cls, c.in.clinical.ecog),
+                        bclc: HCC.bclc({ ...TUMOR0, ...c.in.tumor }, p.cls, c.in.clinical.ecog, HCC.decompensated(i)),
                         tiles: [
                             ['Child-Pugh', p.cls + p.score],
                             ['ALBI', a.score.toFixed(2).replace('-', '−') + ' (G' + a.grade + ')'],
@@ -762,7 +784,7 @@
                 });
                 const loadCase = c => {
                     lab.value = { ...LAB0, ...c.in.lab };
-                    clinical.value = { ...c.in.clinical };
+                    clinical.value = { jaundice: false, ...c.in.clinical };
                     tumor.value = { ...TUMOR0, ...c.in.tumor };
                     setTab('calc');
                 };

@@ -102,6 +102,33 @@ t('Child-Pugh C → D, Milan note', () => {
   assert.equal(r.stage.split(' ')[1], 'D');
   assert.ok(r.notes.some(n => n.includes('Milan')));
 });
+t('ascites or encephalopathy → D even at Child-Pugh A or B', () => {
+  assert.equal(H.childPugh(lab({ ascites: 2 })).cls, 'A');
+  assert.equal(H.bclc(tu(), 'A', 0, H.decompensated(lab({ ascites: 2 }))).stage.split(' ')[1], 'D');
+  assert.equal(H.bclc(tu(), 'B', 0, H.decompensated(lab({ encephalopathy: 2 }))).stage.split(' ')[1], 'D');
+});
+t('jaundice / prior decompensation → D; scores unchanged', () => {
+  assert.equal(H.decompensated(lab({ jaundice: true })), true);
+  assert.equal(H.childPugh(lab({ jaundice: true })).score, 5);
+  assert.equal(H.bclc(tu(), 'A', 0, true).stage.split(' ')[1], 'D');
+});
+t('compensated Child-Pugh B keeps tumour-based stage', () => {
+  assert.equal(H.decompensated(lab({ bilirubin: '2.5', albumin: '3' })), false);
+  assert.equal(stage({ size: '3' }, 'B', 0), 'A');
+});
+t('not preserved + Milan + LT candidate → transplant evaluation', () => {
+  const r = H.bclc(tu({ size: '3', ltCandidate: true }), 'B', 0, true);
+  assert.match(r.stage, /^LT/); assert.match(r.treatment, /移植/);
+  assert.match(H.bclc(tu({ size: '3', ltCandidate: true }), 'C', 0).stage, /^LT/);
+});
+t('not preserved beyond Milan → D, even if LT candidate', () => {
+  const r = H.bclc(tu({ size: '6', ltCandidate: true }), 'B', 0, true);
+  assert.equal(r.stage.split(' ')[1], 'D'); assert.ok(r.notes.some(n => n.includes('超出 Milan')));
+});
+t('ECOG 3 stays D with LT candidate, note on Milan', () => {
+  const r = H.bclc(tu({ size: '3', ltCandidate: true }), 'B', 3, true);
+  assert.equal(r.stage.split(' ')[1], 'D'); assert.ok(r.notes.some(n => n.includes('Milan')));
+});
 t('Child-Pugh B adds caution note', () => assert.ok(H.bclc(tu(), 'B', 0).notes.length > 0));
 t('single A + CSPH + LT candidate → transplant', () => assert.match(H.bclc(tu({ size: '3', portalHTN: true, ltCandidate: true }), 'A', 0).treatment, /移植/));
 t('single A no CSPH → resection', () => assert.match(H.bclc(tu({ size: '3' }), 'A', 0).treatment, /切除/));
@@ -139,7 +166,7 @@ for (const c of CASES) {
   t(`${c.id} matches the engine`, () => {
     const i = lab({ ...c.in.lab, ...c.in.clinical });
     const p = H.childPugh(i), a = H.albi(i), m3 = H.meld3(i);
-    const r = H.bclc(tu({ ...c.in.tumor }), p.cls, c.in.clinical.ecog);
+    const r = H.bclc(tu({ ...c.in.tumor }), p.cls, c.in.clinical.ecog, H.decompensated(i));
     const e = c.expect;
     assert.equal(p.cls + p.score, e.cp);
     assert.equal(fmt(a.score), e.albi);
@@ -168,6 +195,14 @@ t('case 2: LT candidate switches to transplant', () => {
 t('case 3: diffuse switches to systemic therapy', () => {
   const c = CASES.find(x => x.id === 'c3');
   assert.match(H.bclc(tu({ ...c.in.tumor, diffuse: true }), 'A', 0).treatment, /系統治療/);
+});
+t('case 5: LT candidate switches to transplant evaluation', () => {
+  const c = CASES.find(x => x.id === 'c5');
+  assert.match(H.bclc(tu({ ...c.in.tumor, ltCandidate: true }), 'B', 0, true).stage, /^LT/);
+});
+t('case 6: without LT candidacy → D', () => {
+  const c = CASES.find(x => x.id === 'c6');
+  assert.equal(H.bclc(tu({ ...c.in.tumor, ltCandidate: false }), 'C', 2, true).stage.split(' ')[1], 'D');
 });
 t('case 6: without cholestatic cut-offs still C, 13 points', () => {
   const c = CASES.find(x => x.id === 'c6');
@@ -210,9 +245,10 @@ t('b10 stage C, systemic', () => {
   const r = H.bclc(tu({ size: '2', vascular: true }), 'A', 0);
   assert.equal(r.stage.split(' ')[1], 'C'); assert.match(r.treatment, /系統治療/); assert.match(ans('b10'), /^C 期，系統治療/);
 });
-t('a3 engine shows A for the decompensated B8 case (the point of the question)', () => {
-  assert.equal(H.childPugh(lab({ bilirubin: '2.4', albumin: '2.9', inr: '1.5', ascites: 2 })).cls, 'B');
-  assert.equal(stage({ size: '3', portalHTN: true }, 'B', 0), 'A');
+t('a3 decompensated B8 → D, not A', () => {
+  const i = lab({ bilirubin: '2.4', albumin: '2.9', inr: '1.5', ascites: 2 });
+  assert.equal(H.childPugh(i).cls, 'B');
+  assert.equal(H.bclc(tu({ size: '3' }), 'B', 0, H.decompensated(i)).stage.split(' ')[1], 'D');
 });
 t('a9 dialysis example: MELD-Na 24, MELD 3.0 23', () => {
   const i = lab({ bilirubin: '1.2', inr: '1.3', na: '135', albumin: '3', creatinine: '', dialysis: true });
