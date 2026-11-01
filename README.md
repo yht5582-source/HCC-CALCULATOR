@@ -7,6 +7,7 @@
 *   **四大評估系統整合**：在單一介面同時運算 Child-Pugh、ALBI / mALBI、MELD / MELD-Na / MELD 3.0 以及 BCLC 2022 分期。
 *   **缺值防呆**：欄位空白時不計分並提示「請填寫」，數值超出常見範圍（如白蛋白誤填 g/L）會提醒。
 *   **病歷摘要**：一鍵複製所有分數與 BCLC 建議。
+*   **教學分頁**：6 個示範病例（可帶入計算機）、20 題考題（基礎 10、高階 10，附解析，不儲存作答）與診斷治療心智圖，可用 `#cases`、`#quiz`、`#map` 直接連結。
 *   **高隱私與安全性 (Pure Client-Side)**：完全採用前端瀏覽器運算（Vue.js），無需後端伺服器，病患的檢驗數據絕不會上傳至任何網路，確保醫療個資安全。
 *   **隨插即用 (Single File)**：所有計算邏輯皆封裝在 `index.html` 中（另附 `manifest.webmanifest` 與 `icon.svg` 供 PWA 使用）。
 *   **PWA 支援 (Progressive Web App)**：支援行動裝置「加到主畫面」功能。在手機或平板上，可作為全螢幕、無網址列的類原生 App 般順暢使用。
@@ -41,7 +42,7 @@
 *   **前端框架**：[Vue.js 3](https://vuejs.org/) (透過 CDN 引入，處理即時響應式狀態與算式邏輯)
 *   **樣式排版**：[Tailwind CSS](https://tailwindcss.com/) (透過 CDN 引入，處理現代化與自適應 UI)
 *   **PWA 實作**：靜態 `manifest.webmanifest` + SVG 圖示（瀏覽器不接受 blob: 網址的 manifest）
-*   **測試**：計算邏輯位於 `index.html` 的 `/*ENGINE-START*/…/*ENGINE-END*/` 區塊，執行 `node tests.cjs` 驗證。
+*   **測試**：計算邏輯位於 `index.html` 的 `/*ENGINE-START*/…/*ENGINE-END*/` 區塊，教學內容位於 `CASES`、`QUIZ`、`MAP` 區塊，執行 `node tests.cjs` 驗證；病例與計算題會與引擎對照。
 
 ## ⚠️ 醫療免責聲明 (Medical Disclaimer)
 

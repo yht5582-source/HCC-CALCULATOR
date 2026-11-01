@@ -121,5 +121,115 @@ t('up-to-7: 3 nodules 4 cm = 7 → in', () => assert.equal(H.bclc(tu({ count: '3
 console.log('Range warnings');
 t('albumin 40 (g/L typed) warns', () => assert.equal(H.rangeWarnings(lab({ albumin: '40' })).length, 1));
 
+// 教學內容：病例數字、計算題答案都要與引擎一致
+const block = name => {
+  const b = html.match(new RegExp('/\\*' + name + '-START\\*/([\\s\\S]*?)/\\*' + name + '-END\\*/'));
+  if (!b) throw new Error(name + ' block not found');
+  return b[1];
+};
+const CASES = new Function(block('CASES') + '; return HCC_CASES;')();
+const QUIZ = new Function(block('QUIZ') + '; return HCC_QUIZ;')();
+const MAP = new Function(block('MAP') + '; return HCC_MAP;')();
+const fmt = x => x.toFixed(2).replace('-', '−');
+
+console.log('Demo cases');
+t('6 cases with unique ids', () => { assert.equal(CASES.length, 6); assert.equal(new Set(CASES.map(c => c.id)).size, 6); });
+t('stages cover 0, A, B, C, D', () => ['0', 'A', 'B', 'C', 'D'].forEach(x => assert.ok(CASES.some(c => c.expect.stage === x), x)));
+for (const c of CASES) {
+  t(`${c.id} matches the engine`, () => {
+    const i = lab({ ...c.in.lab, ...c.in.clinical });
+    const p = H.childPugh(i), a = H.albi(i), m3 = H.meld3(i);
+    const r = H.bclc(tu({ ...c.in.tumor }), p.cls, c.in.clinical.ecog);
+    const e = c.expect;
+    assert.equal(p.cls + p.score, e.cp);
+    assert.equal(fmt(a.score), e.albi);
+    assert.equal(a.grade, e.grade);
+    assert.equal(a.mGrade, e.mGrade);
+    assert.equal(H.meld(i).score, e.meld);
+    assert.equal(H.meldNa(i).score, e.meldNa);
+    assert.equal(m3.score, e.meld3);
+    if (e.surv90) assert.equal(m3.surv90.toFixed(1), e.surv90);
+    assert.equal(r.stage.split(' ')[1], e.stage);
+    assert.equal(r.milan, e.milan);
+    assert.equal(r.upTo7, e.upTo7);
+    assert.ok(r.treatment.includes(e.treat), r.treatment);
+  });
+  t(`${c.id} text quotes the computed scores`, () => {
+    const text = c.steps.map(s => s[1]).join(' ');
+    assert.ok(text.includes(c.expect.albi), 'ALBI ' + c.expect.albi);
+    assert.ok(text.includes(c.expect.cp) || text.includes('Stage ' + c.expect.stage), 'Child-Pugh / stage');
+    if (c.expect.surv90) assert.ok(text.includes(c.expect.surv90 + '%'), 'survival');
+  });
+}
+t('case 2: LT candidate switches to transplant', () => {
+  const c = CASES.find(x => x.id === 'c2');
+  assert.match(H.bclc(tu({ ...c.in.tumor, ltCandidate: true }), 'A', 0).treatment, /移植/);
+});
+t('case 3: diffuse switches to systemic therapy', () => {
+  const c = CASES.find(x => x.id === 'c3');
+  assert.match(H.bclc(tu({ ...c.in.tumor, diffuse: true }), 'A', 0).treatment, /系統治療/);
+});
+t('case 6: without cholestatic cut-offs still C, 13 points', () => {
+  const c = CASES.find(x => x.id === 'c6');
+  const r = H.childPugh(lab({ ...c.in.lab, ...c.in.clinical, cholestatic: false }));
+  assert.equal(r.cls + r.score, 'C13');
+});
+
+console.log('Quiz');
+t('20 questions: 10 basic + 10 advanced, unique ids', () => {
+  assert.equal(QUIZ.length, 20);
+  assert.equal(QUIZ.filter(q => q.lv === '基礎').length, 10);
+  assert.equal(QUIZ.filter(q => q.lv === '高階').length, 10);
+  assert.equal(new Set(QUIZ.map(q => q.id)).size, 20);
+});
+t('each has 4 distinct options, explanation and source', () => QUIZ.forEach(q => {
+  assert.equal(new Set(q.o).size, 4, q.id);
+  assert.ok(q.a >= 0 && q.a < 4 && q.why && q.src, q.id);
+}));
+t('answers evenly spread, A–D 5 each', () => [0, 1, 2, 3].forEach(k => assert.equal(QUIZ.filter(q => q.a === k).length, 5, 'ABCD'[k])));
+const ans = id => { const q = QUIZ.find(x => x.id === id); return q.o[q.a]; };
+t('b1 Child-Pugh answer', () => {
+  const r = H.childPugh(lab({ bilirubin: '2.5', albumin: '3', inr: '1.5', ascites: 2 }));
+  assert.equal(ans('b1'), r.cls + r.score);
+});
+t('b4 only the correct option meets Milan', () => {
+  assert.equal(H.bclc(tu({ size: '5' }), 'A', 0).milan, true);
+  [tu({ size: '5.5' }), tu({ count: '2', size: '3.5' }), tu({ count: '4', size: '2' })].forEach(x => assert.equal(H.bclc(x, 'A', 0).milan, false));
+  assert.equal(ans('b4'), '單顆 5 cm');
+});
+t('b5 up-to-7 in, Milan out', () => {
+  const r = H.bclc(tu({ count: '3', size: '4' }), 'A', 0);
+  assert.equal(r.upTo7, true); assert.equal(r.milan, false);
+  assert.match(ans('b5'), /^符合，3 \+ 4/);
+});
+t('b8 stage B, TACE', () => {
+  const r = H.bclc(tu({ count: '2', size: '3.5' }), 'A', 0);
+  assert.equal(r.stage.split(' ')[1], 'B'); assert.match(r.treatment, /TACE/); assert.match(ans('b8'), /^B 期，TACE/);
+});
+t('b10 stage C, systemic', () => {
+  const r = H.bclc(tu({ size: '2', vascular: true }), 'A', 0);
+  assert.equal(r.stage.split(' ')[1], 'C'); assert.match(r.treatment, /系統治療/); assert.match(ans('b10'), /^C 期，系統治療/);
+});
+t('a3 engine shows A for the decompensated B8 case (the point of the question)', () => {
+  assert.equal(H.childPugh(lab({ bilirubin: '2.4', albumin: '2.9', inr: '1.5', ascites: 2 })).cls, 'B');
+  assert.equal(stage({ size: '3', portalHTN: true }, 'B', 0), 'A');
+});
+t('a9 dialysis example: MELD-Na 24, MELD 3.0 23', () => {
+  const i = lab({ bilirubin: '1.2', inr: '1.3', na: '135', albumin: '3', creatinine: '', dialysis: true });
+  assert.equal(H.meldNa(i).score, 24); assert.equal(H.meld3(i).score, 23);
+  assert.equal(ans('a9'), '4.0 與 3.0');
+});
+t('a10 engine reads ECOG 2 as stage C', () => assert.equal(stage({ size: '1.5' }, 'A', 2), 'C'));
+
+console.log('Mind map');
+t('two sides, every branch has leaves', () => {
+  assert.deepEqual(MAP.map(s => s.t), ['診斷與評估', '分期與治療']);
+  MAP.forEach(s => s.c.forEach(b => assert.ok(b.c && b.c.length, b.t)));
+});
+t('sibling labels are unique (used as Vue keys)', () => MAP.forEach(s => {
+  assert.equal(new Set(s.c.map(b => b.t)).size, s.c.length);
+  s.c.forEach(b => assert.equal(new Set(b.c.map(x => x.t)).size, b.c.length, b.t));
+}));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
