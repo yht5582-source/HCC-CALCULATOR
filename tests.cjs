@@ -17,7 +17,7 @@ function t(name, fn) {
   catch (e) { fail++; console.log('  ✗ ' + name + '\n    ' + e.message); }
 }
 const lab = o => ({ bilirubin: '1', albumin: '4', inr: '1', creatinine: '1', na: '140', sex: 'male', dialysis: false, cholestatic: false, encephalopathy: 1, ascites: 1, ...o });
-const tu = o => ({ count: '1', size: '1.5', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false, ...o });
+const tu = o => ({ count: '1', size: '1.5', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false, extendedLT: false, ...o });
 const stage = (o, cls = 'A', ecog = 0) => H.bclc(tu(o), cls, ecog).stage.split(' ')[1];
 
 console.log('Child-Pugh');
@@ -112,6 +112,25 @@ t('AFP > 1000 blocks transplant, not other treatment', () => {
   const r = H.bclc(tu({ ...a, afp: '1001' }), 'A', 0);
   assert.match(r.treatment, /燒灼/); assert.doesNotMatch(r.treatment, /移植/);
   assert.ok(r.notes.some(n => n.includes('AFP')));
+});
+t('Stage 0 LT candidate, normal portal, AFP > 1000 → ablation', () => {
+  assert.match(H.bclc(tu({ ltCandidate: true, afp: '2000' }), 'A', 0).treatment, /燒灼/);
+  assert.match(H.bclc(tu({ ltCandidate: true, afp: '1000' }), 'A', 0).treatment, /切除/);
+});
+t('Stage B extended LT needs candidacy, AFP and well-defined nodules', () => {
+  const b = { count: '5', size: '3' };
+  assert.match(H.bclc(tu({ ...b, ltCandidate: true, extendedLT: true }), 'A', 0).treatment, /移植/);
+  assert.match(H.bclc(tu({ ...b, extendedLT: true }), 'A', 0).treatment, /TACE/);
+  assert.match(H.bclc(tu({ ...b, ltCandidate: true }), 'A', 0).treatment, /TACE/);
+  assert.match(H.bclc(tu({ ...b, ltCandidate: true, extendedLT: true, afp: '1500' }), 'A', 0).treatment, /TACE/);
+  assert.match(H.bclc(tu({ ...b, ltCandidate: true, extendedLT: true, diffuse: true }), 'A', 0).treatment, /系統治療/);
+});
+t('decompensated: extended criteria open the LT path, except AFP or spread', () => {
+  const b = { count: '4', size: '2', ltCandidate: true };
+  assert.equal(H.bclc(tu(b), 'B', 0, true).stage.split(' ')[1], 'D');
+  assert.match(H.bclc(tu({ ...b, extendedLT: true }), 'B', 0, true).stage, /^LT.*擴大/);
+  assert.equal(H.bclc(tu({ ...b, extendedLT: true, afp: '2000' }), 'B', 0, true).stage.split(' ')[1], 'D');
+  assert.equal(H.bclc(tu({ ...b, extendedLT: true, vascular: true }), 'B', 0, true).stage.split(' ')[1], 'D');
 });
 t('AFP > 1000 + decompensated + Milan → D, not LT', () => assert.equal(H.bclc(tu({ size: '3', ltCandidate: true, afp: '2000' }), 'B', 0, true).stage.split(' ')[1], 'D'));
 t('stage A: 4 cm with CSPH lists alternatives; 3 cm does not', () => {

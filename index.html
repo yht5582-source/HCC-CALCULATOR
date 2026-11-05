@@ -175,6 +175,10 @@
                                 <input type="checkbox" v-model="tumor.ltCandidate" id="lt" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
                                 <label for="lt" class="ml-2 block text-sm text-slate-700">為肝臟移植候選者</label>
                             </div>
+                            <div v-if="tumor.ltCandidate" class="flex items-start">
+                                <input type="checkbox" v-model="tumor.extendedLT" id="extlt" class="h-4 w-4 mt-0.5 text-blue-600 rounded">
+                                <label for="extlt" class="ml-2 block text-sm text-slate-700">腫瘤符合院內擴大移植標準（影響 B 期與失代償路徑）</label>
+                            </div>
                         </div>
                     </div>
                 </section>
@@ -438,12 +442,14 @@
 
             if (notPreserved) {
                 const why = cpClass === 'C' ? '末期肝功能 (Child-Pugh C)' : '臨床失代償（腹水、肝腦病變或黃疸），肝功能未保留';
-                if (inMilan && ltOK) {
+                // 第 2 圖：符合移植影像條件，含 Milan 或院內擴大標準
+                const radiologic = inMilan || (!!t.extendedLT && !t.vascular && !t.extrahepatic);
+                if (radiologic && ltOK) {
                     notes.push('因腫瘤以外的因素無法移植時，歸為 Stage D；暫時性的禁忌改善後可再評估。');
-                    return out('LT 評估 (肝功能未保留，腫瘤在 Milan 內)', why, '轉介肝臟移植評估。', null);
+                    return out(`LT 評估 (肝功能未保留，${inMilan ? '腫瘤在 Milan 內' : '符合院內擴大標準'})`, why, '轉介肝臟移植評估。', null);
                 }
                 if (inMilan && !t.ltCandidate) notes.push('腫瘤符合 Milan 標準：若為移植候選者，應轉介肝臟移植評估。');
-                else if (ltOK) notes.push('腫瘤超出 Milan 標準：依各機構的擴大或降階標準評估移植。');
+                else if (ltOK) notes.push('腫瘤超出 Milan 標準：若符合院內擴大或降階標準，請勾選後重新評估。');
                 notes.push('少數病人經病因治療或併發症控制後可再代償，之後可重新評估系統治療或移植。');
                 return out('Stage D (末期)', why, SUPPORTIVE, OS.D);
             }
@@ -459,7 +465,7 @@
                 return out('Stage C (晚期)', why, SYSTEMIC, OS.C);
             }
 
-            if (n === 1 && size <= 2 && !t.ltCandidate) {
+            if (n === 1 && size <= 2 && !ltOK) {
                 notes.push('MW 對 3–4 cm 內腫瘤的局部控制比 RFA 可靠。位置不佳時，TARE、EBRT 或 TACE 可為替代；周邊腫瘤也可考慮微創切除。');
                 return out('Stage 0 (極早期)', `單顆 ≤ 2 cm、ECOG 0、${liver}，非移植候選者`,
                     '局部燒灼術 (MW / RFA)。', OS.early);
@@ -490,10 +496,15 @@
 
             const why = n > 3 ? `多發性 (${n} 顆)` : '2–3 顆且最大 > 3 cm';
             if (t.diffuse) return out('Stage B (中期)', `${why}，瀰漫 / 浸潤型或廣泛兩葉侵犯`, SYSTEMIC, OS.B);
+            if (ltOK && t.extendedLT) {
+                notes.push('移植前全身治療屬可考慮但未證實的替代序列。無法移植時回到 TACE。');
+                return out('Stage B (中期)', `${why}，ECOG 0、${liver}，符合院內擴大標準`, '肝臟移植（依院內擴大標準，必要時先降階或橋接）。', OS.B);
+            }
+            if (ltOK) notes.push('若符合院內擴大標準（大小、AFP），可勾選後改走移植路徑。');
             notes.push('TACE 適用於邊界清楚、門脈血流保留、可選擇性進入腫瘤血管者。因技術因素不能做時，可用 TARE 或 EBRT 延後系統治療；因腫瘤負擔不適合時，改系統治療。');
             notes.push('無法治療的進展 (untreatable progression)：轉為下一階段治療。TACE 合併系統治療目前不建議在臨床試驗外使用。');
             return out('Stage B (中期)', `${why}，ECOG 0、${liver}`,
-                ltOK ? '符合院內擴大標準（大小、AFP）者評估肝臟移植，含降階或橋接；否則經動脈化學栓塞術 (TACE)。' : '經動脈化學栓塞術 (TACE)。', OS.B);
+                '經動脈化學栓塞術 (TACE)。', OS.B);
         }
 
         // 數值合理範圍（超出時僅提醒，不阻擋計算）
@@ -735,7 +746,7 @@
                 // 輸入數據狀態（v-model 不加 .number，以便辨識空白欄位）
                 const lab = ref({ bilirubin: '1.0', albumin: '4.0', inr: '1.0', creatinine: '1.0', na: '140', sex: 'male', dialysis: false, cholestatic: false });
                 const clinical = ref({ encephalopathy: 1, ascites: 1, jaundice: false, ecog: 0 });
-                const tumor = ref({ count: '1', size: '1.5', afp: '', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false });
+                const tumor = ref({ count: '1', size: '1.5', afp: '', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false, extendedLT: false });
 
                 const labels = { bilirubin: '總膽紅素', albumin: '白蛋白', inr: 'INR', creatinine: '肌酸酐', na: '血清鈉', count: '腫瘤數量', size: '最大直徑' };
                 const bad = computed(() => {
@@ -793,7 +804,7 @@
 
                 // 示範病例
                 const LAB0 = { bilirubin: '', albumin: '', inr: '', creatinine: '', na: '', sex: 'male', dialysis: false, cholestatic: false };
-                const TUMOR0 = { count: '', size: '', afp: '', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false };
+                const TUMOR0 = { count: '', size: '', afp: '', vascular: false, extrahepatic: false, diffuse: false, portalHTN: false, ltCandidate: false, extendedLT: false };
                 const cases = HCC_CASES;
                 const caseId = ref(cases[0].id);
                 const activeCase = computed(() => cases.find(c => c.id === caseId.value));
